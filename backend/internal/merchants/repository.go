@@ -8,6 +8,11 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	ErrTeamMemberExists   = errors.New("merchants: team member already exists")
+	ErrTeamOwnerProtected = errors.New("merchants: owner membership cannot be changed")
+)
+
 // Repository owns persistence for merchants, users, access grants and refresh
 // tokens. It performs no business decisions and calls no external services.
 type Repository struct{ DB *gorm.DB }
@@ -74,6 +79,24 @@ func (r *Repository) UserByEmail(email string) (*User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// UpdateUserName persists a user's display name.
+func (r *Repository) UpdateUserName(userID, name string) error {
+	return r.DB.Model(&User{}).Where("id = ?", userID).Update("name", name).Error
+}
+
+// ChangeUserPassword persists a password update and revokes every refresh
+// session atomically.
+func (r *Repository) ChangeUserPassword(userID, passwordHash string, at time.Time) error {
+	return r.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&User{}).Where("id = ?", userID).Update("password_hash", passwordHash).Error; err != nil {
+			return err
+		}
+		return tx.Model(&RefreshToken{}).
+			Where("user_id = ? AND revoked_at IS NULL", userID).
+			Update("revoked_at", at).Error
+	})
 }
 
 // UserByID loads a user by id.
@@ -197,6 +220,77 @@ func (r *Repository) UsersByMerchant(merchantID string, developersOnly bool) ([]
 // UpdateUserStatus changes a member's status.
 func (r *Repository) UpdateUserStatus(id, status string) error {
 	return r.DB.Model(&UserMerchant{}).Where("id = ?", id).Update("status", status).Error
+}
+
+// TeamMemberRecord is one membership joined with its login identity.
+type TeamMemberRecord struct {
+	MembershipID string     `json:"id"`
+	UserID       string     `json:"-"`
+	Name         string     `json:"name"`
+	Email        string     `json:"email"`
+	Role         string     `json:"role"`
+	Status       string     `json:"status"`
+	LastActiveAt *time.Time `json:"last_active_at"`
+}
+
+// TeamByMerchant lists active account memberships for a merchant.
+func (r *Repository) TeamByMerchant(merchantID string) ([]TeamMemberRecord, error) {
+	var rows []TeamMemberRecord
+	err := r.DB.Table("user_merchants AS um").
+		Select("um.id AS membership_id, um.user_id, users.name, users.email, um.role, um.status, users.last_active_at").
+		Joins("JOIN users ON users.id = um.user_id").
+		Where("um.merchant_id = ? AND um.status = ?", merchantID, "active").
+		Order("um.created_at ASC").
+		Scan(&rows).Error
+	return rows, err
+}
+
+// AddTeamMember creates or reactivates a membership without changing an existing
+// owner or administrator role.
+func (r *Repository) AddTeamMember(merchantID, userID, role string, at time.Time) error {
+	return r.DB.Transaction(func(tx *gorm.DB) error {
+		var membership UserMerchant
+		err := tx.Where("merchant_id = ? AND user_id = ?", merchantID, userID).First(&membership).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return tx.Create(&UserMerchant{
+				ID:         idForMembership(),
+				UserID:     userID,
+				MerchantID: merchantID,
+				Role:       role,
+				Status:     "active",
+				CreatedAt:  at,
+				UpdatedAt:  at,
+			}).Error
+		case err != nil:
+			return err
+		case membership.Status == "active":
+			return ErrTeamMemberExists
+		case membership.Role == "Owner":
+			return ErrTeamOwnerProtected
+		default:
+			return tx.Model(&membership).Updates(map[string]any{
+				"role": role, "status": "active", "updated_at": at,
+			}).Error
+		}
+	})
+}
+
+// RevokeTeamMember revokes one non-owner membership scoped to its merchant.
+func (r *Repository) RevokeTeamMember(merchantID, membershipID, actorUserID string, at time.Time) error {
+	result := r.DB.Model(&UserMerchant{}).
+		Where(
+			"merchant_id = ? AND id = ? AND role <> ? AND status = ? AND user_id <> ?",
+			merchantID, membershipID, "Owner", "active", actorUserID,
+		).
+		Updates(map[string]any{"status": "revoked", "updated_at": at})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // TouchLastActive records activity for the dashboard roster.
@@ -625,11 +719,38 @@ func (r *Repository) RefreshTokenByHash(tokenHash string) (*RefreshToken, error)
 	return &token, nil
 }
 
+// ActiveRefreshTokens lists unexpired refresh tokens for one user in one
+// merchant context. Raw token hashes are never returned from this repository
+// method's callers.
+func (r *Repository) ActiveRefreshTokens(userID, merchantID string, at time.Time) ([]RefreshToken, error) {
+	var tokens []RefreshToken
+	err := r.DB.Where(
+		"user_id = ? AND merchant_id = ? AND revoked_at IS NULL AND expires_at > ?",
+		userID, merchantID, at,
+	).Order("created_at DESC").Find(&tokens).Error
+	return tokens, err
+}
+
 // RevokeRefreshToken revokes one token.
 func (r *Repository) RevokeRefreshToken(tokenHash string, at time.Time) error {
 	return r.DB.Model(&RefreshToken{}).
 		Where("token_hash = ? AND revoked_at IS NULL", tokenHash).
 		Update("revoked_at", at).Error
+}
+
+// RevokeRefreshTokenByID revokes one session by its opaque database ID, scoped
+// to both the user and merchant that own it.
+func (r *Repository) RevokeRefreshTokenByID(userID, merchantID, id string, at time.Time) error {
+	result := r.DB.Model(&RefreshToken{}).
+		Where("id = ? AND user_id = ? AND merchant_id = ? AND revoked_at IS NULL", id, userID, merchantID).
+		Update("revoked_at", at)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // RevokeUserRefreshTokens revokes every live token for a user (logout-all,

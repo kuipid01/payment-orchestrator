@@ -15,6 +15,7 @@ import (
 	"google.golang.org/api/idtoken"
 	"gorm.io/gorm"
 
+	"github.com/kuipid01/payconnect/internal/audit"
 	apperrors "github.com/kuipid01/payconnect/internal/errors"
 	"github.com/kuipid01/payconnect/internal/merchants"
 	"github.com/kuipid01/payconnect/internal/platform/identity"
@@ -32,6 +33,7 @@ type Service struct {
 	GoogleClientID string
 	RefreshTTL     time.Duration
 	APIKeys        APIKeyLookup
+	Audit          audit.Recorder
 	Log            *slog.Logger
 }
 
@@ -179,6 +181,132 @@ func (s *Service) Memberships(userID, currentMerchantID string) ([]MembershipVie
 		})
 	}
 	return views, nil
+}
+
+// UpdateProfile changes the signed-in user's display name.
+func (s *Service) UpdateProfile(userID, merchantID, name string) (*merchants.User, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || len([]rune(name)) > 120 {
+		return nil, apperrors.Validation(apperrors.CodeValidationError, "name must be between 1 and 120 characters.")
+	}
+	user, err := s.Merchants.UserByID(userID)
+	if err != nil {
+		return nil, apperrors.AuthenticationRequired()
+	}
+	membership, err := s.Merchants.UserMerchantByUserAndMerchant(userID, merchantID)
+	if err != nil {
+		return nil, apperrors.AuthenticationRequired()
+	}
+	user.Role = membership.Role
+	if err := s.Merchants.UpdateUserName(userID, name); err != nil {
+		return nil, err
+	}
+	user.Name = name
+	if s.Audit != nil {
+		s.Audit.Record(audit.Entry{
+			MerchantID: merchantID, ActorName: name, ActorRole: user.Role,
+			Action: "Profile updated", Detail: "Display name was updated.",
+		})
+	}
+	return user, nil
+}
+
+// ChangePassword verifies the current password, persists the new hash and
+// invalidates all refresh sessions in one database transaction.
+func (s *Service) ChangePassword(userID, merchantID, currentPassword, newPassword string) error {
+	if len(newPassword) < 12 {
+		return apperrors.Validation(apperrors.CodeValidationError, "password must be at least 12 characters.")
+	}
+	user, err := s.Merchants.UserByID(userID)
+	if err != nil {
+		return apperrors.AuthenticationRequired()
+	}
+	membership, err := s.Merchants.UserMerchantByUserAndMerchant(userID, merchantID)
+	if err != nil {
+		return apperrors.AuthenticationRequired()
+	}
+	user.Role = membership.Role
+	if user.PasswordHash == "" {
+		return apperrors.Validation(apperrors.CodeValidationError, "This account has no password yet. Use the password reset flow to set one.")
+	}
+	if !identity.CheckPassword(user.PasswordHash, currentPassword) {
+		return apperrors.InvalidCredentials()
+	}
+	passwordHash, err := identity.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	if err := s.Merchants.ChangeUserPassword(userID, passwordHash, time.Now().UTC()); err != nil {
+		return err
+	}
+	if s.Audit != nil {
+		s.Audit.Record(audit.Entry{
+			MerchantID: merchantID, ActorName: user.Name, ActorRole: user.Role, Action: "Password changed",
+			Detail:   "Password was changed and all refresh sessions were revoked.",
+			Severity: "warning",
+		})
+	}
+	return nil
+}
+
+// SessionView is a safe representation of one persisted login session.
+type SessionView struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Current   bool      `json:"current"`
+}
+
+// Sessions lists active sessions for the signed-in merchant and marks the
+// session identified by the refresh cookie as current.
+func (s *Service) Sessions(userID, merchantID, currentRefreshToken string) ([]SessionView, error) {
+	rows, err := s.Merchants.ActiveRefreshTokens(userID, merchantID, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	currentHash := ""
+	if currentRefreshToken != "" {
+		currentHash = hashOpaque(currentRefreshToken)
+	}
+	out := make([]SessionView, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, SessionView{
+			ID: row.ID, CreatedAt: row.CreatedAt, ExpiresAt: row.ExpiresAt,
+			Current: currentHash != "" && row.TokenHash == currentHash,
+		})
+	}
+	return out, nil
+}
+
+// RevokeSession ends one session. The current session must use the normal
+// sign-out route so its cookies are cleared as well.
+func (s *Service) RevokeSession(userID, merchantID, sessionID, currentRefreshToken string) error {
+	if currentRefreshToken != "" {
+		current, err := s.Merchants.RefreshTokenByHash(hashOpaque(currentRefreshToken))
+		if err == nil && current.ID == sessionID {
+			return apperrors.Validation(apperrors.CodeValidationError, "Use sign out to end the current session.")
+		}
+	}
+	if err := s.Merchants.RevokeRefreshTokenByID(userID, merchantID, sessionID, time.Now().UTC()); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.NotFound(apperrors.CodeNotFound, "Session not found or already revoked.")
+		}
+		return err
+	}
+	if s.Audit != nil {
+		user, err := s.Merchants.UserByID(userID)
+		if err == nil {
+			if membership, membershipErr := s.Merchants.UserMerchantByUserAndMerchant(userID, merchantID); membershipErr == nil {
+				user.Role = membership.Role
+			}
+			s.Audit.Record(audit.Entry{
+				MerchantID: merchantID, ActorName: user.Name, ActorRole: user.Role,
+				Action: "Session revoked", Detail: "A login session was revoked.",
+				Severity: "warning",
+			})
+		}
+	}
+	return nil
 }
 
 // IssueFor mints a session for a membership that already exists. It is the seam

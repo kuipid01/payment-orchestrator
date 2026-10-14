@@ -1,6 +1,9 @@
 package logs
 
 import (
+	"bytes"
+	"encoding/csv"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -87,11 +90,50 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 func (h *Handler) Audit(c *fiber.Ctx) error {
 	principal := identity.From(c)
 	page := apihttp.ParsePagination(c)
-	rows, err := h.repo.AuditLogs(principal.MerchantID, c.Query("severity"), page.Offset(), page.Limit)
+	severity := c.Query("severity")
+	rows, err := h.repo.AuditLogs(principal.MerchantID, severity, page.Offset(), page.Limit)
 	if err != nil {
 		return h.responder.Error(c, err)
 	}
-	return h.responder.Success(c, rows)
+	total, err := h.repo.CountAuditLogs(principal.MerchantID, severity)
+	if err != nil {
+		return h.responder.Error(c, err)
+	}
+	return h.responder.Paginated(c, rows, apihttp.Page{
+		Page: page.Page, Limit: page.Limit, Total: &total,
+		HasMore: int64(page.Offset()+len(rows)) < total,
+	})
+}
+
+// ExportAudit handles GET /v1/audit-logs/export and returns the filtered trail
+// as a CSV attachment.
+func (h *Handler) ExportAudit(c *fiber.Ctx) error {
+	principal := identity.From(c)
+	rows, err := h.repo.AllAuditLogs(principal.MerchantID, c.Query("severity"))
+	if err != nil {
+		return h.responder.Error(c, err)
+	}
+	var body bytes.Buffer
+	writer := csv.NewWriter(&body)
+	if err := writer.Write([]string{"id", "at", "actor_name", "actor_role", "action", "detail", "severity"}); err != nil {
+		return h.responder.Error(c, err)
+	}
+	for _, row := range rows {
+		if err := writer.Write([]string{
+			row.ID, row.CreatedAt.UTC().Format(time.RFC3339), row.ActorName, row.ActorRole,
+			row.Action, row.Detail, row.Severity,
+		}); err != nil {
+			return h.responder.Error(c, err)
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return h.responder.Error(c, err)
+	}
+	c.Set(fiber.HeaderContentType, "text/csv; charset=utf-8")
+	c.Set(fiber.HeaderContentDisposition, `attachment; filename="audit-logs.csv"`)
+	c.Set("Content-Length", strconv.Itoa(body.Len()))
+	return c.Send(body.Bytes())
 }
 
 func toResponse(row *APILog) Response {

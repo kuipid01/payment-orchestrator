@@ -54,6 +54,16 @@ func RegisterAuthenticatedRoutes(api fiber.Router, h *Handler) {
 	api.Post("/auth/switch", h.Switch)
 }
 
+// RegisterSessionRoutes mounts account-management endpoints that must never be
+// reachable with an API key.
+func RegisterSessionRoutes(api fiber.Router, sessionOnly fiber.Handler, h *Handler) {
+	auth := api.Group("/auth", sessionOnly)
+	auth.Patch("/profile", h.UpdateProfile)
+	auth.Post("/password", h.ChangePassword)
+	auth.Get("/sessions", h.Sessions)
+	auth.Delete("/sessions/:id", h.RevokeSession)
+}
+
 func allowAll() fiber.Handler {
 	return func(c *fiber.Ctx) error { return c.Next() }
 }

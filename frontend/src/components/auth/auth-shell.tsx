@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
  * Sign-in and sign-up were redesigned into a split screen — a product panel on
  * the left, a card on the right — while the recovery, verification and
  * invitation screens kept the older centred layout, so the flow changed shape
- * halfway through. Every auth screen now renders this shell, which is the
- * redesigned look in one place: one brand mark, one card, one footer.
+ * halfway through. This is that redesigned look in one place: one brand mark,
+ * one card, one footer, shared by every auth screen that does not carry its own
+ * bespoke product panel.
  */
 export function AuthShell({
   aside,

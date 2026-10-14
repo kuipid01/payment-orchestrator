@@ -110,6 +110,7 @@ func NewApp(d *Dependencies) *fiber.App {
 	paymentGuard := middleware.RateLimit(d.Store, d.Logger, middleware.BucketPayment, d.Cfg.Limits.PaymentPerMinute, "rl")
 
 	auth.RegisterAuthenticatedRoutes(api, authHandler)
+	auth.RegisterSessionRoutes(api, sessionOnly, authHandler)
 	merchants.RegisterRoutes(api, sessionOnly, merchants.NewHandler(d.Merchants, d.Responder))
 	developer.RegisterRoutes(api, sessionOnly, developerHandler)
 	application.RegisterRoutes(api, sessionOnly, application.NewHandler(d.Applications, d.Responder))

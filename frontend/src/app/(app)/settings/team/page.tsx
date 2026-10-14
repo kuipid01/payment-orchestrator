@@ -1,12 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { UserPlus } from "lucide-react";
-import { Badge, Button, Card, PageHeader, Select } from "@/components/ui";
-import { useAsync } from "@/hooks/use-async";
-import { listTeam } from "@/lib/api";
-import { timeAgo } from "@/lib/utils";
+import Link from "next/link";
+import { MessageSquare, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Badge, Button, Input, Label, Modal, Select, Skeleton } from "@/components/ui";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "@/components/ui/toaster";
+import { useAsync } from "@/hooks/use-async";
+import { addTeamMember, listTeam, removeTeamMember } from "@/lib/api";
+import { timeAgo } from "@/lib/utils";
+import {
+  SettingsRow,
+  SettingsRows,
+  SettingsSection,
+} from "@/components/app/settings/section";
 
 const ROLE_META: Record<string, { variant: "brand" | "success" | "info" | "neutral"; desc: string }> = {
   Owner: { variant: "brand", desc: "Full control including billing and provider credentials" },
@@ -16,127 +23,201 @@ const ROLE_META: Record<string, { variant: "brand" | "success" | "info" | "neutr
 };
 
 export default function TeamSettingsPage() {
-  const { data, loading } = useAsync(listTeam, []);
+  const { user } = useAuth();
+  const { data, loading, error, refetch } = useAsync(listTeam, [], ["settings", "team"]);
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const [inviteEmail, setInviteEmail] = React.useState("");
-  const [role, setRole] = React.useState("Developer");
+  const [email, setEmail] = React.useState("");
+  const [role, setRole] = React.useState<"Admin" | "Developer" | "Viewer">("Developer");
+  const [adding, setAdding] = React.useState(false);
+  const [removing, setRemoving] = React.useState<string | null>(null);
+  const canManage = user?.role === "Owner" || user?.role === "Admin";
 
-  function sendInvite() {
-    if (!inviteEmail.trim()) {
-      toast("warning", "Email required", "Who are you inviting?");
-      return;
+  const members = data ?? [];
+
+  async function addMember(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAdding(true);
+    try {
+      await addTeamMember(email, role);
+      setInviteOpen(false);
+      setEmail("");
+      await refetch();
+      toast("success", "Team member added", `${email} was added as ${role}.`);
+    } catch (cause) {
+      toast("error", "Could not add team member", cause instanceof Error ? cause.message : "Please try again.");
+    } finally {
+      setAdding(false);
     }
-    setInviteOpen(false);
-    toast("success", "Invite sent", `${inviteEmail} invited as ${role}.`);
-    setInviteEmail("");
+  }
+
+  async function removeMember(id: string, memberEmail: string) {
+    setRemoving(id);
+    try {
+      await removeTeamMember(id);
+      await refetch();
+      toast("success", "Team member removed", `${memberEmail} no longer has workspace access.`);
+    } catch (cause) {
+      toast("error", "Could not remove team member", cause instanceof Error ? cause.message : "Please try again.");
+    } finally {
+      setRemoving(null);
+    }
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-900">Members</h2>
-            <p className="text-[12px] text-slate-400">Roles control what each person can manage.</p>
+    <>
+      <SettingsSection
+        icon={Users}
+        title="Members"
+        description="Workspace members and the role that decides what they can access."
+        aside={
+          canManage ? (
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <UserPlus className="size-4" />
+              Add member
+            </Button>
+          ) : null
+        }
+        flush
+      >
+        {error ? (
+          <div className="border-t border-slate-100 px-5 py-6 text-center sm:px-7">
+            <p className="text-sm text-rose-700">
+              {error instanceof Error ? error.message : "Could not load team members."}
+            </p>
+            <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={() => void refetch()}>
+              Retry
+            </Button>
           </div>
-          <Button size="sm" onClick={() => setInviteOpen(true)}>
-            <UserPlus className="size-4" /> Invite member
-          </Button>
-        </div>
-
-        {loading ? (
-          <div className="divide-y divide-slate-100">
+        ) : loading ? (
+          <div className="divide-y divide-slate-100 border-t border-slate-100">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-5 py-4">
-                <div className="size-9 animate-pulse rounded-full bg-slate-100" />
-                <div className="h-3.5 w-40 animate-pulse rounded bg-slate-100" />
-                <div className="ml-auto h-5 w-16 animate-pulse rounded-full bg-slate-100" />
+              <div key={i} className="flex items-center gap-4 px-5 py-4 sm:px-7">
+                <Skeleton className="size-9 rounded-full" />
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="ml-auto h-5 w-16 rounded-full" />
               </div>
             ))}
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {(data ?? []).map((m) => (
-              <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-[12px] font-semibold text-slate-600">
-                    {m.name
-                      .split(" ")
-                      .map((w) => w[0])
-                      .join("")
-                      .slice(0, 2)}
-                  </span>
-                  <div>
-                    <p className="text-[13.5px] font-medium text-slate-900">{m.name}</p>
-                    <p className="text-[12px] text-slate-400">{m.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="hidden text-[12px] text-slate-400 lg:block">
-                    {m.lastActiveAt ? `Active ${timeAgo(m.lastActiveAt)}` : "Invited, not yet joined"}
-                  </p>
-                  <Badge variant={ROLE_META[m.role].variant}>{m.role}</Badge>
-                  {m.role !== "Owner" ? (
-                    <Button variant="ghost" size="sm" className="text-slate-400">
-                      Remove
-                    </Button>
-                  ) : null}
-                </div>
+          <SettingsRows>
+            {members.map((m) => (
+              <div key={m.id} className="px-5 sm:px-7">
+                <SettingsRow
+                  title={
+                    <span className="flex items-center gap-3">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11.5px] font-semibold text-slate-600">
+                        {m.name
+                          .split(" ")
+                          .map((w) => w[0])
+                          .join("")
+                          .slice(0, 2)}
+                      </span>
+                      {m.name}
+                    </span>
+                  }
+                  description={m.email}
+                  control={
+                    <span className="flex items-center gap-3">
+                      <span className="hidden text-[12px] text-slate-400 lg:block">
+                        {m.lastActiveAt ? `Active ${timeAgo(m.lastActiveAt)}` : "Invited, not yet joined"}
+                      </span>
+                      <Badge variant={ROLE_META[m.role]?.variant ?? "neutral"}>{m.role}</Badge>
+                      {canManage && m.role !== "Owner" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-slate-500"
+                          disabled={removing === m.id}
+                          onClick={() => void removeMember(m.id, m.email)}
+                        >
+                          {removing === m.id ? "Removing…" : "Remove"}
+                        </Button>
+                      ) : null}
+                    </span>
+                  }
+                />
               </div>
             ))}
-          </div>
+          </SettingsRows>
         )}
-      </Card>
+      </SettingsSection>
 
-      <Card>
-        <div className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900">Role permissions</h2>
-          <div className="mt-4 space-y-3">
-            {Object.entries(ROLE_META).map(([roleName, meta]) => (
-              <div key={roleName} className="flex items-start gap-3">
-                <Badge variant={meta.variant} className="mt-0.5 min-w-20 justify-center">
-                  {roleName}
-                </Badge>
-                <p className="text-[13px] text-slate-500">{meta.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Card>
-
-      {/* Invite modal */}
-      {inviteOpen ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40" onClick={() => setInviteOpen(false)} />
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-[var(--shadow-lift)]">
-            <h2 className="text-base font-semibold text-slate-900">Invite a team member</h2>
-            <p className="mt-1 text-[13px] text-slate-500">
-              They'll get an email with a join link. Developers building integrations should be invited from{" "}
-              <span className="font-medium text-slate-700">Developers</span> instead — that flow grants scoped API
-              access without org-wide permissions.
-            </p>
-            <div className="mt-5 space-y-3">
-              <input
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="teammate@company.com"
-                className="h-9.5 w-full rounded-[var(--radius-btn)] border border-slate-200 px-3 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15"
+      <SettingsSection
+        icon={ShieldCheck}
+        tone="violet"
+        title="Role permissions"
+        description="What each role can do. Roles are derived from the membership the API returns, so a client cannot promote itself."
+        flush
+      >
+        <SettingsRows>
+          {Object.entries(ROLE_META).map(([roleName, meta]) => (
+            <div key={roleName} className="px-5 sm:px-7">
+              <SettingsRow
+                title={
+                  <Badge variant={meta.variant} className="min-w-20 justify-center">
+                    {roleName}
+                  </Badge>
+                }
+                description={meta.desc}
               />
-              <Select value={role} onChange={(e) => setRole(e.target.value)}>
-                <option>Admin</option>
-                <option>Developer</option>
-                <option>Viewer</option>
-              </Select>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setInviteOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={sendInvite}>Send invite</Button>
-            </div>
+          ))}
+        </SettingsRows>
+      </SettingsSection>
+
+      <p className="flex items-start gap-2 px-1 text-[12px] leading-5 text-slate-400">
+        <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
+        <span>
+          Building an integration? Developers should be invited from{" "}
+          <Link href="/developers/invite" className="font-medium text-brand-700 hover:underline">
+            Developers
+          </Link>{" "}
+          instead — that flow grants scoped API access without org-wide permissions.
+        </span>
+      </p>
+
+      <Modal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        title="Add a team member"
+        description="Add an existing PayConnect account to this workspace."
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setInviteOpen(false)} disabled={adding}>
+              Cancel
+            </Button>
+            <Button type="submit" form="add-team-member" disabled={adding || !email.trim()}>
+              {adding ? "Adding…" : "Add member"}
+            </Button>
           </div>
-        </div>
-      ) : null}
-    </div>
+        }
+      >
+        <form id="add-team-member" onSubmit={addMember} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="team-email">Account email</Label>
+            <Input
+              id="team-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="teammate@company.com"
+            />
+            <p className="text-[12px] text-slate-500">
+              The person must already have a verified PayConnect account. Access is granted as soon as you add them.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="team-role">Role</Label>
+            <Select id="team-role" value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
+              <option value="Admin">Admin</option>
+              <option value="Developer">Developer</option>
+              <option value="Viewer">Viewer</option>
+            </Select>
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 }

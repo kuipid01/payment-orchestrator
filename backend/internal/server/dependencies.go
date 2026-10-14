@@ -118,6 +118,7 @@ func Build(cfg config.Config, db *database.DB, store redis.Store, logger *slog.L
 
 	/* -------------------------------- services -------------------------------- */
 	merchantService := merchants.NewService(merchantRepo)
+	merchantService.Audit = auditStore
 
 	providerService := providers.NewService(providerRepo, vlt, registry, auditStore)
 	// The inbound webhook URL a merchant pastes into a provider dashboard is
@@ -176,6 +177,7 @@ func Build(cfg config.Config, db *database.DB, store redis.Store, logger *slog.L
 	billingService.CheckoutEnabled = false
 
 	authService := auth.NewService(merchantRepo, signer, logger)
+	authService.Audit = auditStore
 	authService.GoogleClientID = cfg.Security.GoogleClientID
 	authService.FrontendURL = cfg.App.FrontendURL
 	authService.RefreshTTL = cfg.Security.JWTRefreshTTL

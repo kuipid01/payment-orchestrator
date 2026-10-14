@@ -216,6 +216,62 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 	return h.responder.Success(c, body)
 }
 
+// UpdateProfile handles PATCH /v1/auth/profile.
+func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
+	principal := identity.From(c)
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := apihttp.Body(c, &req); err != nil {
+		return h.responder.Error(c, err)
+	}
+	user, err := h.svc.UpdateProfile(principal.UserID, principal.MerchantID, req.Name)
+	if err != nil {
+		return h.responder.Error(c, err)
+	}
+	return h.responder.Success(c, fiber.Map{"user": ToUserResponse(user, principal.MerchantID, user.Role)})
+}
+
+// ChangePassword handles POST /v1/auth/password.
+func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+	principal := identity.From(c)
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := apihttp.Body(c, &req); err != nil {
+		return h.responder.Error(c, err)
+	}
+	if err := h.svc.ChangePassword(principal.UserID, principal.MerchantID, req.CurrentPassword, req.NewPassword); err != nil {
+		return h.responder.Error(c, err)
+	}
+	clearSessionCookies(c)
+	return h.responder.Success(c, fiber.Map{"password_changed": true, "refresh_sessions_revoked": true})
+}
+
+// Sessions handles GET /v1/auth/sessions.
+func (h *Handler) Sessions(c *fiber.Ctx) error {
+	principal := identity.From(c)
+	rows, err := h.svc.Sessions(
+		principal.UserID, principal.MerchantID, c.Cookies(identity.CookieRefreshToken),
+	)
+	if err != nil {
+		return h.responder.Error(c, err)
+	}
+	return h.responder.Success(c, rows)
+}
+
+// RevokeSession handles DELETE /v1/auth/sessions/:id.
+func (h *Handler) RevokeSession(c *fiber.Ctx) error {
+	principal := identity.From(c)
+	if err := h.svc.RevokeSession(
+		principal.UserID, principal.MerchantID, c.Params("id"), c.Cookies(identity.CookieRefreshToken),
+	); err != nil {
+		return h.responder.Error(c, err)
+	}
+	return h.responder.Success(c, fiber.Map{"revoked": true})
+}
+
 // Memberships handles GET /v1/auth/memberships: every organization the signed-in
 // user can act in, with the current one marked. This is what lets one dashboard
 // serve an owner who also develops for other merchants.
@@ -274,8 +330,19 @@ func (h *Handler) setSessionCookies(c *fiber.Ctx, tokens *Tokens) {
 			SameSite: fiber.CookieSameSiteLaxMode,
 		})
 	}
+
 	cookie(identity.CookieAccessToken, tokens.AccessToken, int(15*time.Minute/time.Second))
 	cookie(identity.CookieRefreshToken, tokens.RefreshToken, int(30*24*time.Hour/time.Second))
+}
+
+func clearSessionCookies(c *fiber.Ctx) {
+	for _, name := range []string{identity.CookieRefreshToken, identity.CookieAccessToken} {
+		c.Cookie(&fiber.Cookie{
+			Name: name, Value: "", Path: "/", MaxAge: -1,
+			HTTPOnly: true, Secure: c.Protocol() == "https",
+			SameSite: fiber.CookieSameSiteLaxMode,
+		})
+	}
 }
 
 func (h *Handler) sessionResponse(c *fiber.Ctx, tokens *Tokens, user any) error {

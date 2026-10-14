@@ -1,73 +1,113 @@
 "use client";
 
 import * as React from "react";
-import { Copy } from "lucide-react";
-import { Button, Card, Input, Label, Separator } from "@/components/ui";
+import { Building2, Fingerprint, Globe2 } from "lucide-react";
+import { Badge, Button, CopyField, Input, Label } from "@/components/ui";
+import { useAuth } from "@/components/providers/auth-provider";
+import { useAsync } from "@/hooks/use-async";
 import { toast } from "@/components/ui/toaster";
+import { getMerchantProfile, updateMerchantProfile } from "@/lib/api";
+import {
+  NotConnectedNotice,
+  SettingsRow,
+  SettingsRows,
+  SettingsSection,
+} from "@/components/app/settings/section";
 
 export default function OrganizationSettingsPage() {
+  const { user, refresh } = useAuth();
+  const { data, loading, error, refetch } = useAsync(
+    getMerchantProfile,
+    [],
+    ["settings", "merchant"],
+  );
+  const [name, setName] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const canManage = user?.role === "Owner" || user?.role === "Admin";
 
-  function onSave(e: React.FormEvent) {
-    e.preventDefault();
+  React.useEffect(() => {
+    setName(data?.business_name ?? "");
+  }, [data?.business_name]);
+
+  async function saveOrganization(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await updateMerchantProfile({ business_name: name });
+      await Promise.all([refetch(), refresh()]);
       toast("success", "Organization updated");
-    }, 700);
+    } catch (cause) {
+      toast("error", "Could not update organization", cause instanceof Error ? cause.message : "Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <form onSubmit={onSave} className="p-6">
-          <h2 className="text-sm font-semibold text-slate-900">Organization</h2>
-          <p className="mt-0.5 text-[12.5px] text-slate-400">Your workspace identity.</p>
-
-          <div className="mt-6 space-y-1.5">
+    <>
+      <SettingsSection
+        icon={Building2}
+        title="Workspace identity"
+        description="The name your developers see when they accept an invitation, and on every dashboard screen."
+        notice={!canManage ? <>Only an organization owner or admin can rename this workspace.</> : undefined}
+      >
+        <form onSubmit={saveOrganization} className="border-t border-slate-100 pt-5">
+          <div className="space-y-1.5">
             <Label htmlFor="org-name">Organization name</Label>
-            <Input id="org-name" defaultValue="Acme Inc" />
+            {error ? (
+              <p className="text-[12px] text-rose-700">
+                {error instanceof Error ? error.message : "Could not load workspace details."}{" "}
+                <button type="button" className="font-medium underline" onClick={() => void refetch()}>
+                  Retry
+                </button>
+              </p>
+            ) : null}
+            <Input
+              id="org-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={120}
+              required
+              disabled={!canManage || loading || Boolean(error)}
+              className="sm:max-w-md"
+            />
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="org-id">Organization ID</Label>
-              <div className="flex gap-2">
-                <Input id="org-id" value="org_9x41k2m8" readOnly className="font-mono bg-slate-50" />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  aria-label="Copy organization ID"
-                  onClick={() => {
-                    navigator.clipboard.writeText("org_9x41k2m8");
-                    toast("info", "Copied", "Organization ID copied.");
-                  }}
-                >
-                  <Copy className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="created">Created</Label>
-              <Input id="created" value="June 14, 2026" readOnly className="bg-slate-50" />
-            </div>
-          </div>
-
-          <Separator className="my-6" />
-          <h3 className="text-[13px] font-semibold text-slate-900">Region</h3>
-          <p className="mt-0.5 text-[12.5px] text-slate-400">
-            Vault region: <span className="font-mono text-slate-700">eu-west-1</span> — credentials never leave this
-            region.
-          </p>
-
-          <div className="mt-6 flex justify-end">
-            <Button type="submit" disabled={saving}>
+          <div className="mt-6 flex justify-end border-t border-slate-100 pt-5">
+            <Button type="submit" disabled={!canManage || saving || loading || Boolean(error)}>
               {saving ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </form>
-      </Card>
-    </div>
+      </SettingsSection>
+
+      <SettingsSection
+        icon={Fingerprint}
+        tone="violet"
+        title="Identifiers"
+        description="Stable values for this workspace. Safe to quote in a support request or a webhook log."
+        flush
+      >
+        <SettingsRows>
+          <div className="px-5 sm:px-7">
+            <SettingsRow
+              title="Workspace ID"
+              description="Used by the API in logs, events and support conversations."
+              control={
+                <CopyField value={user?.merchant_id ?? ""} className="sm:w-80" />
+              }
+            />
+          </div>
+          <div className="px-5 sm:px-7">
+            <SettingsRow
+              title="Your role"
+              description="Owner is the only role that can manage billing and provider credentials."
+              control={<Badge variant="brand">{user?.role || "—"}</Badge>}
+            />
+          </div>
+        </SettingsRows>
+      </SettingsSection>
+
+    </>
   );
 }

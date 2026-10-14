@@ -1,71 +1,156 @@
 "use client";
 
-import * as React from "react";
-import { Card, Switch } from "@/components/ui";
-import { toast } from "@/components/ui/toaster";
+import { Bell, CreditCard, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Switch } from "@/components/ui";
+import {
+  NotConnectedNotice,
+  SettingsRow,
+  SettingsRows,
+  SettingsSection,
+} from "@/components/app/settings/section";
 
-const GROUPS: { title: string; description: string; items: { id: string; label: string; def: boolean }[] }[] = [
+/**
+ * The preferences a merchant will be able to choose between. Everything defaults
+ * to the behaviour the platform already has, which is why the switches show a
+ * position — but nothing is persisted, so they cannot be moved.
+ */
+const GROUPS: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  tone: "brand" | "emerald" | "violet";
+  items: { id: string; label: string; description: string; on: boolean }[];
+}[] = [
   {
     title: "Payments",
-    description: "What lands in your inbox as money moves.",
+    description: "What reaches your inbox as money moves.",
+    icon: CreditCard,
+    tone: "brand",
     items: [
-      { id: "payment.successful", label: "Payment successful", def: true },
-      { id: "payment.failed", label: "Payment failed", def: true },
-      { id: "payment.refunded", label: "Refund processed", def: true },
-      { id: "payment.pending_digest", label: "Pending payments digest (daily)", def: false },
+      {
+        id: "payment.successful",
+        label: "Payment successful",
+        description: "A charge settled with a provider.",
+        on: true,
+      },
+      {
+        id: "payment.failed",
+        label: "Payment failed",
+        description: "A charge was declined or errored at the provider.",
+        on: true,
+      },
+      {
+        id: "payment.refunded",
+        label: "Refund processed",
+        description: "A refund completed, in full or in part.",
+        on: true,
+      },
+      {
+        id: "payment.pending_digest",
+        label: "Pending payments digest",
+        description: "One daily summary instead of an email per pending charge.",
+        on: false,
+      },
     ],
   },
   {
     title: "Security",
-    description: "Always recommended — these affect your vault.",
+    description: "These affect your vault, so they are on by default.",
+    icon: ShieldCheck,
+    tone: "emerald",
     items: [
-      { id: "security.new_login", label: "New device sign-in", def: true },
-      { id: "security.key_rotated", label: "Provider credentials rotated", def: true },
-      { id: "security.api_key_created", label: "API key created or revoked", def: true },
-      { id: "security.developer_invited", label: "Developer invited or revoked", def: true },
+      {
+        id: "security.new_login",
+        label: "New device sign-in",
+        description: "Somebody signed in from a device you have not used before.",
+        on: true,
+      },
+      {
+        id: "security.key_rotated",
+        label: "Provider credentials rotated",
+        description: "A provider secret was stored or rotated.",
+        on: true,
+      },
+      {
+        id: "security.api_key_created",
+        label: "API key created or revoked",
+        description: "A developer key changed state.",
+        on: true,
+      },
+      {
+        id: "security.developer_invited",
+        label: "Developer invited or revoked",
+        description: "Access to your applications changed hands.",
+        on: true,
+      },
     ],
   },
   {
     title: "Platform",
     description: "Operational alerts for your integrations.",
+    icon: Bell,
+    tone: "violet",
     items: [
-      { id: "platform.webhook_failing", label: "Webhook endpoint failing", def: true },
-      { id: "platform.provider_degraded", label: "Provider degraded or erroring", def: true },
-      { id: "platform.product_updates", label: "Product updates", def: false },
+      {
+        id: "platform.webhook_failing",
+        label: "Webhook endpoint failing",
+        description: "Deliveries to an endpoint keep failing.",
+        on: true,
+      },
+      {
+        id: "platform.provider_degraded",
+        label: "Provider degraded",
+        description: "A connected provider is erroring or timing out.",
+        on: true,
+      },
+      {
+        id: "platform.product_updates",
+        label: "Product updates",
+        description: "Occasional news about what shipped.",
+        on: false,
+      },
     ],
   },
 ];
 
 export default function NotificationsSettingsPage() {
-  const [prefs, setPrefs] = React.useState<Record<string, boolean>>(() =>
-    Object.fromEntries(GROUPS.flatMap((g) => g.items.map((i) => [i.id, i.def])))
-  );
-
   return (
-    <div className="space-y-4">
+    <>
+      <NotConnectedNotice>
+        Notification preferences are not stored by the API yet. Each switch shows the current
+        default behaviour and cannot be changed, so nobody leaves this page believing they
+        unsubscribed from something.
+      </NotConnectedNotice>
+
       {GROUPS.map((group) => (
-        <Card key={group.title}>
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-slate-900">{group.title}</h2>
-            <p className="text-[12px] text-slate-400">{group.description}</p>
-          </div>
-          <div className="divide-y divide-slate-100">
+        <SettingsSection
+          key={group.title}
+          icon={group.icon}
+          tone={group.tone}
+          title={group.title}
+          description={group.description}
+          flush
+        >
+          <SettingsRows>
             {group.items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between px-5 py-3.5">
-                <p className="text-[13.5px] text-slate-700">{item.label}</p>
-                <Switch
-                  checked={prefs[item.id]}
-                  onCheckedChange={(v) => {
-                    setPrefs((prev) => ({ ...prev, [item.id]: v }));
-                    toast("info", v ? "Subscribed" : "Unsubscribed", item.label);
-                  }}
-                  aria-label={`Toggle ${item.label}`}
+              <div key={item.id} className="px-5 sm:px-7">
+                <SettingsRow
+                  title={item.label}
+                  description={item.description}
+                  control={
+                    <Switch
+                      checked={item.on}
+                      onCheckedChange={() => {}}
+                      disabled
+                      aria-label={`Toggle ${item.label}`}
+                    />
+                  }
                 />
               </div>
             ))}
-          </div>
-        </Card>
+          </SettingsRows>
+        </SettingsSection>
       ))}
-    </div>
+    </>
   );
 }

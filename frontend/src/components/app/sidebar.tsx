@@ -124,12 +124,7 @@ export function Sidebar({ className }: { className?: string }) {
         {/* The plan is furniture, not a page: it stays visible so a limit is
             never the first a merchant hears of what they are on. */}
         <PlanBadge />
-        <div className="flex items-start gap-2.5 rounded-xl border border-brand-100 bg-brand-50/60 p-3">
-          <Lock className="mt-0.5 size-4 shrink-0 text-brand-500" />
-          <p className="text-[12px] leading-snug text-brand-900">
-            Vault active — provider secrets are encrypted and never exposed to developers.
-          </p>
-        </div>
+       
       </div>
     </aside>
   );

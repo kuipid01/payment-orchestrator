@@ -5,7 +5,6 @@
  */
 
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
-import { AUDIT_LOGS, TEAM } from "./mock-data";
 import { DEVELOPER_PERMISSIONS } from "./types";
 import type { Environment } from "./utils";
 import type {
@@ -56,6 +55,22 @@ export interface SessionUser {
 
 export interface AuthSession {
   user: SessionUser;
+}
+
+export interface AuthSessionRecord {
+  id: string;
+  created_at: string;
+  expires_at: string;
+  current: boolean;
+}
+
+export interface MerchantProfile {
+  id: string;
+  business_name: string;
+  country: string;
+  default_currency: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** The signed-in identity returned by GET /auth/me. */
@@ -240,6 +255,25 @@ export function loginAccount(input: LoginInput): Promise<AuthSession> {
 /** Hydrates the dashboard with the current session (or API-key) principal. */
 export function getSession(): Promise<Session> {
   return request<Session>("/auth/me");
+}
+
+export async function updateProfile(name: string): Promise<void> {
+  await request("/auth/profile", { method: "PATCH", data: { name } });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await request("/auth/password", {
+    method: "POST",
+    data: { current_password: currentPassword, new_password: newPassword },
+  });
+}
+
+export function listSessions(): Promise<AuthSessionRecord[]> {
+  return request<AuthSessionRecord[]>("/auth/sessions");
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  await request(`/auth/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
 }
 
 /** Revokes the current session and clears the session cookies. */
@@ -1204,14 +1238,66 @@ export async function listApiLogs(): Promise<ApiLog[]> {
   }
 }
 
-export function listAuditLogs(): Promise<AuditLog[]> {
-  return delay(AUDIT_LOGS);
+export async function getMerchantProfile(): Promise<MerchantProfile> {
+  return request<MerchantProfile>("/merchant");
+}
+
+export async function updateMerchantProfile(input: { business_name: string }): Promise<MerchantProfile> {
+  return request<MerchantProfile>("/merchant", { method: "PATCH", data: input });
+}
+
+export async function listAuditLogs(severity = "all"): Promise<AuditLog[]> {
+  const logs: AuditLog[] = [];
+  let pageNumber = 1;
+  while (true) {
+    const params = new URLSearchParams({ page: String(pageNumber), limit: "100" });
+    if (severity !== "all") params.set("severity", severity);
+    const { items, page } = await requestPage<AuditLog>(`/audit-logs?${params.toString()}`);
+    logs.push(...items);
+    if (!page.has_more) return logs;
+    if (items.length === 0) throw new Error("The API returned an empty audit page while more results were expected.");
+    pageNumber += 1;
+  }
+}
+
+export async function exportAuditLogs(severity = "all"): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (severity !== "all") params.set("severity", severity);
+  const response = await apiClient.get(`/audit-logs/export?${params.toString()}`, {
+    responseType: "blob",
+  });
+  return response.data as Blob;
 }
 
 /* ----------------------------------- team ----------------------------------- */
 
-export function listTeam(): Promise<OrgMember[]> {
-  return delay(TEAM);
+interface TeamMemberResponse {
+  id: string;
+  name: string;
+  email: string;
+  role: OrgMember["role"];
+  status: OrgMember["status"];
+  last_active_at: string | null;
+}
+
+export async function listTeam(): Promise<OrgMember[]> {
+  const members = await request<TeamMemberResponse[]>("/team");
+  return members.map((member) => ({
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    role: member.role,
+    status: member.status,
+    lastActiveAt: member.last_active_at,
+  }));
+}
+
+export async function addTeamMember(email: string, role: OrgMember["role"]): Promise<void> {
+  await request("/team", { method: "POST", data: { email, role } });
+}
+
+export async function removeTeamMember(membershipId: string): Promise<void> {
+  await request(`/team/${encodeURIComponent(membershipId)}`, { method: "DELETE" });
 }
 
 /* ---------------------------------- billing --------------------------------- */

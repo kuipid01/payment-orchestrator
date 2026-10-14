@@ -85,10 +85,7 @@ func (r *Repository) APILogByID(merchantID, id string) (*APILog, error) {
 
 // AuditLogs returns a page of the security audit trail.
 func (r *Repository) AuditLogs(merchantID, severity string, offset, limit int) ([]audit.Log, error) {
-	q := r.DB.Where("merchant_id = ?", merchantID)
-	if severity != "" {
-		q = q.Where("severity = ?", severity)
-	}
+	q := auditQuery(r.DB, merchantID, severity)
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -97,4 +94,26 @@ func (r *Repository) AuditLogs(merchantID, severity string, offset, limit int) (
 		return nil, err
 	}
 	return rows, nil
+}
+
+// CountAuditLogs returns the number of matching audit events.
+func (r *Repository) CountAuditLogs(merchantID, severity string) (int64, error) {
+	var total int64
+	err := auditQuery(r.DB.Model(&audit.Log{}), merchantID, severity).Count(&total).Error
+	return total, err
+}
+
+// AllAuditLogs returns matching records for CSV export.
+func (r *Repository) AllAuditLogs(merchantID, severity string) ([]audit.Log, error) {
+	var rows []audit.Log
+	err := auditQuery(r.DB, merchantID, severity).Order("created_at DESC").Find(&rows).Error
+	return rows, err
+}
+
+func auditQuery(db *gorm.DB, merchantID, severity string) *gorm.DB {
+	q := db.Where("merchant_id = ?", merchantID)
+	if severity != "" {
+		q = q.Where("severity = ?", severity)
+	}
+	return q
 }

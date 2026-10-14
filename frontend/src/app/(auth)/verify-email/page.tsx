@@ -3,8 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MailCheck, MailWarning } from "lucide-react";
+import { ArrowRight, BadgeCheck, MailCheck, MailWarning, RefreshCw } from "lucide-react";
 import { Button, Input, Label } from "@/components/ui";
+import {
+  AuthAsideStory,
+  AuthHeading,
+  AuthShell,
+  AuthStatusIcon,
+} from "@/components/auth/auth-shell";
 import { resendVerification, verifyEmail } from "@/lib/api";
 
 export default function VerifyEmailPage() {
@@ -49,54 +55,126 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <div className="text-center">
-      <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-brand-100 bg-brand-50">
-        {phase === "invalid" ? <MailWarning className="size-6 text-amber-600" /> : <MailCheck className="size-6 text-brand-500" />}
-      </div>
-      <h1 className="mt-5 text-xl font-semibold tracking-tight text-slate-900">
-        {phase === "checking" ? "Verifying your email…" : phase === "verified" ? "Email verified" : "Verify your email"}
-      </h1>
-      <p className="mt-2 text-sm leading-relaxed text-slate-500">
-        {phase === "verified"
-          ? "Your account is verified. You can now sign in."
-          : phase === "checking"
-            ? "Please wait while we check your verification link."
-            : phase === "invalid"
-              ? message || "This verification link is invalid or expired. Request a new one below."
-              : <>We sent a verification link to <span className="font-medium text-slate-700">{email || "your email address"}</span>. The link expires in 1 hour.</>}
-      </p>
+    <AuthShell
+      aside={
+        <AuthAsideStory
+          eyebrow="Account verification"
+          title={
+            <>
+              One click.
+              <br />
+              Then your
+              <br />
+              <span className="text-slate-400">workspace opens.</span>
+            </>
+          }
+          description="We ask you to confirm your address before taking live payments, so nobody can register a domain or an inbox they do not control."
+          points={[
+            {
+              icon: MailCheck,
+              title: "One link, 1 hour",
+              description: "Verification links are single-use and expire an hour after they are sent.",
+            },
+            {
+              icon: BadgeCheck,
+              title: "Then you are set",
+              description: "Verified addresses can take live payments and invite developers.",
+            },
+          ]}
+        />
+      }
+      footnote={
+        <p className="mt-6 text-center text-[11px] text-slate-400">
+          Need to use another address?{" "}
+          <Link href="/register" className="text-brand-700 hover:underline">
+            Start over
+          </Link>
+        </p>
+      }
+    >
+      <div className="text-center">
+        <div className="flex justify-center">
+          <AuthStatusIcon
+            icon={phase === "invalid" ? MailWarning : phase === "verified" ? BadgeCheck : MailCheck}
+            tone={phase === "invalid" ? "warning" : phase === "verified" ? "success" : "brand"}
+          />
+        </div>
 
-      {phase === "verified" ? (
-        <Button size="lg" className="mt-8 w-full" onClick={() => router.push("/login")}>
-          Continue to sign in
-        </Button>
-      ) : (
-        <form onSubmit={onResend} className="mt-8 space-y-3 text-left">
-          <div className="space-y-1.5">
-            <Label htmlFor="verification-email">Email address</Label>
-            <Input
-              id="verification-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" size="lg" className="w-full" disabled={resending || phase === "checking"}>
-            {resending ? "Sending…" : "Resend verification email"}
+        <div className="mt-5">
+          <AuthHeading
+            align="center"
+            title={
+              phase === "checking"
+                ? "Verifying your email…"
+                : phase === "verified"
+                  ? "Email verified"
+                  : "Verify your email"
+            }
+            description={
+              phase === "verified" ? (
+                "Your account is verified. You can now sign in."
+              ) : phase === "checking" ? (
+                "Please wait while we check your verification link."
+              ) : phase === "invalid" ? (
+                message || "This verification link is invalid or expired. Request a new one below."
+              ) : (
+                <>
+                  We sent a verification link to{" "}
+                  <span className="font-medium text-slate-700">
+                    {email || "your email address"}
+                  </span>
+                  . The link expires in 1 hour.
+                </>
+              )
+            }
+          />
+        </div>
+
+        {phase === "verified" ? (
+          <Button
+            size="lg"
+            className="h-12 w-full gap-2 rounded-xl text-sm font-semibold"
+            onClick={() => router.push("/login")}
+          >
+            Continue to sign in
+            <ArrowRight className="size-4" />
           </Button>
-        </form>
-      )}
+        ) : (
+          <form onSubmit={onResend} className="space-y-5 text-left">
+            <div className="space-y-2">
+              <Label htmlFor="verification-email" className="text-[13px] font-semibold text-slate-800">
+                Email address
+              </Label>
+              <Input
+                id="verification-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={resending}
+                required
+                className="h-12 rounded-xl border-slate-200 text-sm placeholder:text-slate-400 focus-visible:ring-brand-500"
+              />
+            </div>
 
-      {message && phase !== "invalid" && <p role="status" className="mt-4 text-sm text-slate-600">{message}</p>}
+            <Button
+              type="submit"
+              size="lg"
+              disabled={resending || phase === "checking"}
+              className="h-12 w-full gap-2 rounded-xl text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw className="size-4" />
+              {resending ? "Sending…" : "Resend verification email"}
+            </Button>
+          </form>
+        )}
 
-      <p className="mt-6 text-[12.5px] text-slate-400">
-        Need to use another address?{" "}
-        <Link href="/register" className="text-brand-500 hover:underline">
-          Re-register
-        </Link>
-      </p>
-    </div>
+        {message && phase !== "invalid" && (
+          <p role="status" className="mt-4 text-sm leading-5 text-slate-600">
+            {message}
+          </p>
+        )}
+      </div>
+    </AuthShell>
   );
 }

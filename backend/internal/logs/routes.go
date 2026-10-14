@@ -8,4 +8,5 @@ func RegisterRoutes(api fiber.Router, sessionOnly fiber.Handler, h *Handler) {
 	api.Get("/logs", h.List)
 	api.Get("/logs/:id", h.Get)
 	api.Get("/audit-logs", sessionOnly, h.Audit)
+	api.Get("/audit-logs/export", sessionOnly, h.ExportAudit)
 }
