@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,19 @@ type VerificationSender interface {
 	SendPasswordReset(ctx context.Context, email, name, link string) error
 	SendDeveloperInvitation(ctx context.Context, email, name, link string) error
 }
+
+// DeveloperInvitation carries the optional context shown in the invitation
+// email. Only Email and Link are required; the rest enrich the template.
+type DeveloperInvitation struct {
+	Email        string
+	Name         string
+	Link         string
+	MerchantName string   // workspace the developer is being invited to
+	InviterName  string   // who sent the invitation
+	Permissions  []string // e.g. DeveloperMerchantAccess.Permissions
+}
+
+var _ VerificationSender = (*Brevo)(nil)
 
 type Brevo struct {
 	APIKey      string
@@ -38,73 +52,91 @@ func NewBrevo(apiKey, senderEmail, senderName string) *Brevo {
 }
 
 func (b *Brevo) SendVerification(ctx context.Context, email, name, link string) error {
-	return b.sendMessage(ctx, email, name, "Verify your PayConnect email", fmt.Sprintf(
-		`<p>Hello %s,</p><p>Verify your email to finish creating your PayConnect account.</p><p><a href="%s">Verify email</a></p><p>This link expires in 1 hour.</p>`,
-		html.EscapeString(name), html.EscapeString(link),
-	))
+	m, err := renderVerification(name, link)
+	if err != nil {
+		return err
+	}
+	return b.send(ctx, email, name, m)
 }
 
 func (b *Brevo) SendPasswordReset(ctx context.Context, email, name, link string) error {
-	return b.sendMessage(ctx, email, name, "Reset your PayConnect password", fmt.Sprintf(
-		`<p>Hello %s,</p><p>Use the link below to reset your PayConnect password. It expires in 30 minutes.</p><p><a href="%s">Reset password</a></p>`,
-		html.EscapeString(name), html.EscapeString(link),
-	))
+	m, err := renderPasswordReset(name, link)
+	if err != nil {
+		return err
+	}
+	return b.send(ctx, email, name, m)
 }
 
+// SendDeveloperInvitation satisfies VerificationSender with the minimal
+// invitation. Prefer SendDeveloperInvitationDetails when the workspace name,
+// inviter and permissions are known.
 func (b *Brevo) SendDeveloperInvitation(ctx context.Context, email, name, link string) error {
-	return b.sendMessage(ctx, email, name, "Join PayConnect as a developer", fmt.Sprintf(
-		`<p>Hello %s,</p><p>You have been invited to join a PayConnect merchant workspace as a developer.</p><p><a href="%s">Accept developer invitation</a></p><p>This link expires in 7 days.</p>`,
-		html.EscapeString(name), html.EscapeString(link),
-	))
+	return b.SendDeveloperInvitationDetails(ctx, DeveloperInvitation{Email: email, Name: name, Link: link})
 }
 
-func (b *Brevo) sendMessage(ctx context.Context, email, name, subject, htmlContent string) error {
+// SendDeveloperInvitationDetails sends the invitation with workspace, inviter
+// and permission details rendered in the email.
+func (b *Brevo) SendDeveloperInvitationDetails(ctx context.Context, inv DeveloperInvitation) error {
+	m, err := renderDeveloperInvitation(inv)
+	if err != nil {
+		return err
+	}
+	return b.send(ctx, inv.Email, inv.Name, m)
+}
+
+type brevoContact struct {
+	Email string `json:"email"`
+	Name  string `json:"name,omitempty"`
+}
+
+type brevoPayload struct {
+	Sender      brevoContact   `json:"sender"`
+	To          []brevoContact `json:"to"`
+	Subject     string         `json:"subject"`
+	HTMLContent string         `json:"htmlContent"`
+	TextContent string         `json:"textContent,omitempty"`
+}
+
+func (b *Brevo) send(ctx context.Context, email, name string, m message) error {
 	if b.APIKey == "" || b.SenderEmail == "" {
 		return ErrNotConfigured
 	}
+	if strings.TrimSpace(email) == "" {
+		return errors.New("mailer: recipient email is required")
+	}
 
-	payload := struct {
-		Sender struct {
-			Name  string `json:"name"`
-			Email string `json:"email"`
-		} `json:"sender"`
-		To []struct {
-			Email string `json:"email"`
-			Name  string `json:"name,omitempty"`
-		} `json:"to"`
-		Subject     string `json:"subject"`
-		HTMLContent string `json:"htmlContent"`
-	}{}
-	payload.Sender.Name = b.SenderName
-	payload.Sender.Email = b.SenderEmail
-	payload.To = append(payload.To, struct {
-		Email string `json:"email"`
-		Name  string `json:"name,omitempty"`
-	}{Email: email, Name: name})
-	payload.Subject = subject
-	payload.HTMLContent = htmlContent
-
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(brevoPayload{
+		Sender:      brevoContact{Email: b.SenderEmail, Name: b.SenderName},
+		To:          []brevoContact{{Email: email, Name: name}},
+		Subject:     m.Subject,
+		HTMLContent: m.HTML,
+		TextContent: m.Text,
+	})
 	if err != nil {
 		return fmt.Errorf("mailer: encode Brevo message: %w", err)
 	}
+
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, b.Endpoint, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("mailer: create Brevo request: %w", err)
 	}
 	request.Header.Set("api-key", b.APIKey)
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
 	client := b.Client
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return fmt.Errorf("mailer: send verification email: %w", err)
+		return fmt.Errorf("mailer: send email: %w", err)
 	}
 	defer response.Body.Close()
+
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("mailer: Brevo returned HTTP %d", response.StatusCode)
+		snippet, _ := io.ReadAll(io.LimitReader(response.Body, 512))
+		return fmt.Errorf("mailer: Brevo returned HTTP %d: %s", response.StatusCode, strings.TrimSpace(string(snippet)))
 	}
 	return nil
 }

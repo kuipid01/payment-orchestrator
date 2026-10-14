@@ -155,4 +155,45 @@ If an inbound call is still silent with the flag on, check that the request
 reached the process at all: a wrong `connection_id` logs
 `webhook rejected: connection not found`, and a signature mismatch logs
 `webhook rejected: signature verification failed` with the reason.
+
+### Docker deployment
+
+The backend Compose stack runs PostgreSQL and the API. Postgres data is stored
+in a named Docker volume, and the database is only reachable on the private
+Compose network. The API waits for Postgres to pass its health check. On API
+startup, the server applies all embedded Goose migrations before opening its
+HTTP listener.
+
+On the server:
+
+```bash
+cd backend
+cp .env.docker.example .env.docker
+chmod 600 .env.docker
+```
+
+Edit `.env.docker` and replace the three random-secret placeholders with
+independent values from `openssl rand -hex 32`. Set the public API, frontend,
+and webhook URLs to the real HTTPS domains, and make `ALLOWED_ORIGINS` the
+comma-separated frontend origins that should be allowed to call the API.
+Configure Google/Brevo values if those integrations are enabled.
+
+Validate and start the stack:
+
+```bash
+docker compose --env-file .env.docker config --quiet
+docker compose --env-file .env.docker up --build -d
+docker compose --env-file .env.docker ps
+docker compose --env-file .env.docker logs -f api
+```
+
+The API is bound to `127.0.0.1:8080` by default so it can sit behind a
+reverse proxy that terminates HTTPS. Set `API_PORT` to change the local port.
+Keep TLS and trusted-proxy configuration on the reverse proxy aligned with
+`TRUSTED_PROXIES`; never expose the database port publicly. `docker compose
+down` preserves the database volume; `docker compose down -v` deletes it and
+all stored data.
+
+Do not use the repository's development `.env` for production. Keep
+`.env.docker` private on the server and back up the PostgreSQL volume regularly.
 # payment-orchestrator

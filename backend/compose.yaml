@@ -1,0 +1,81 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:?Set DATABASE_NAME in .env.docker}
+      POSTGRES_USER: ${DATABASE_USER:?Set DATABASE_USER in .env.docker}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD in .env.docker}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - payconnect
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: payconnect-api
+      APP_ENV: production
+      PORT: "8080"
+      DATABASE_HOST: db
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:?Set DATABASE_NAME in .env.docker}
+      DATABASE_USER: ${DATABASE_USER:?Set DATABASE_USER in .env.docker}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD in .env.docker}
+      DATABASE_SSLMODE: disable
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.docker}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env.docker}
+      API_BASE_URL: ${API_BASE_URL:?Set API_BASE_URL in .env.docker}
+      WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL:?Set WEBHOOK_BASE_URL in .env.docker}
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env.docker}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?Set ALLOWED_ORIGINS in .env.docker}
+      API_KEY_PREFIX: vpay
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL:-}
+      BREVO_SENDER_NAME: ${BREVO_SENDER_NAME:-PayConnect}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      LOG_LEVEL: info
+      LOG_WEBHOOK_VERBOSE: "false"
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:8080/ready
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - payconnect
+
+volumes:
+  postgres_data:
+
+networks:
+  payconnect:
+    driver: bridge

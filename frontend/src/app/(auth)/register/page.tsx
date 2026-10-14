@@ -17,11 +17,17 @@ import {
   Eye,
   EyeOff,
   LoaderCircle,
-  WalletCards,
 } from "lucide-react";
 
 import { Button, Input, Label } from "@/components/ui";
-import { registerAccount } from "@/lib/api";
+import { toast } from "@/components/ui/toaster";
+import { AuthBrand } from "@/components/auth/auth-brand";
+import {
+  GoogleAuthButton,
+  GoogleDivider,
+} from "@/components/auth/google-auth-button";
+import { useAuth } from "@/components/providers/auth-provider";
+import { loginWithGoogle, registerAccount } from "@/lib/api";
 
 const PERKS = [
   {
@@ -41,30 +47,43 @@ const PERKS = [
   },
 ];
 
-function Brand() {
-  return (
-    <Link href="/" aria-label="PayConnect home" className="inline-flex w-fit items-center gap-3">
-      <span className="flex size-10 items-center justify-center rounded-xl bg-brand-500 text-slate-950 shadow-sm shadow-brand-600/20">
-        <WalletCards className="size-5" strokeWidth={2.3} />
-      </span>
-      <span className="leading-tight">
-        <span className="block text-xl font-bold tracking-tight text-slate-950">
-          PayConnect
-        </span>
-        <span className="mt-0.5 block text-[11px] font-medium text-slate-500">
-          by Nile
-        </span>
-      </span>
-    </Link>
-  );
-}
-
 export default function RegisterPage() {
   const router = useRouter();
+  const { refresh } = useAuth();
 
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [googleError, setGoogleError] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+
+  /**
+   * Registration through Google is the same call as sign-in: the API creates
+   * the merchant and its owner when the Google identity is new, and signs the
+   * person in when it is not. No email confirmation is needed, because Google
+   * has already verified the address it hands us.
+   */
+  async function signUpWithGoogle(credential: string) {
+    if (loading) return;
+
+    setLoading(true);
+    setError("");
+    setGoogleError("");
+
+    try {
+      await loginWithGoogle(credential);
+      await refresh();
+      toast("success", "Workspace created", "Your organization is ready.");
+      router.push("/dashboard");
+    } catch (cause) {
+      setGoogleError(
+        cause instanceof Error
+          ? cause.message
+          : "Google sign-up failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -111,7 +130,7 @@ export default function RegisterPage() {
         {/* Left: Brand and product introduction */}
         <aside className="relative hidden min-h-screen flex-col overflow-hidden border-r border-brand-100/80 bg-linear-to-br from-brand-50 via-white to-brand-100/70 px-10 py-9 lg:flex xl:px-16">
           {/* Brand */}
-          <Brand />
+          <AuthBrand />
 
           {/* Intro */}
           <div className="relative z-10 mx-auto mt-12 w-full max-w-lg lg:my-auto lg:py-16">
@@ -234,14 +253,14 @@ export default function RegisterPage() {
         <section className="flex min-h-screen min-w-0 flex-col px-5 py-6 sm:px-8 lg:px-10 xl:px-16">
           {/* Top navigation */}
           <header className="flex items-center justify-between lg:hidden">
-            <Brand />
+            <AuthBrand />
           </header>
 
           {/* Form container */}
           <div className="flex flex-1 items-center justify-center py-10 sm:py-14 lg:py-8">
             <div className="w-full max-w-110 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_70px_-45px_rgba(15,23,42,0.22)] sm:p-9">
             <div className="hidden lg:block">
-              <Brand />
+              <AuthBrand />
             </div>
             <div className="mt-2 mb-8 lg:mt-9">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
@@ -422,6 +441,29 @@ export default function RegisterPage() {
                   </>
                 )}
               </Button>
+
+              {/* Google sign-up. The organization is named from the Google
+                  profile, so there is nothing else to ask for here. */}
+              <GoogleDivider label="or sign up with" />
+
+              <GoogleAuthButton
+                onCredential={signUpWithGoogle}
+                onError={setGoogleError}
+                text="signup_with"
+                notConfiguredLabel="Google sign-up is not configured"
+                pendingLabel="Creating your workspace…"
+                pending={loading}
+              />
+
+              {googleError && (
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  className="border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700"
+                >
+                  {googleError}
+                </div>
+              )}
 
               <p className="text-center text-[11px] leading-5 text-slate-400">
                 By creating an account, you agree to our{" "}

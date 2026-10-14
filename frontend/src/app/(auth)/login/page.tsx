@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
 import {
   ArrowRight,
   BarChart3,
@@ -12,7 +11,6 @@ import {
   LockKeyhole,
   Mail,
   ShieldCheck,
-  WalletCards,
   Eye,
   EyeOff,
   LoaderCircle,
@@ -21,38 +19,13 @@ import {
 import { Button, Input, Label } from "@/components/ui";
 import { SessionLoading } from "@/components/app/session-loading";
 import { toast } from "@/components/ui/toaster";
+import { AuthBrand } from "@/components/auth/auth-brand";
+import {
+  GoogleAuthButton,
+  GoogleDivider,
+} from "@/components/auth/google-auth-button";
 import { loginAccount, loginWithGoogle } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
-
-interface GoogleCredentialResponse {
-  credential: string;
-}
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (options: {
-            client_id: string;
-            callback: (response: GoogleCredentialResponse) => void;
-            auto_select?: boolean;
-          }) => void;
-          renderButton: (
-            parent: HTMLElement,
-            options: {
-              theme: "outline";
-              size: "large";
-              text: "continue_with";
-              shape: "rectangular";
-              width: number;
-            },
-          ) => void;
-        };
-      };
-    };
-  }
-}
 
 const highlights = [
   {
@@ -72,45 +45,21 @@ const highlights = [
   },
 ];
 
-function Brand() {
-  return (
-    <Link href="/" aria-label="PayConnect home" className="inline-flex items-center gap-3">
-      <span className="flex size-10 items-center justify-center rounded-xl bg-brand-500 text-slate-950 shadow-sm shadow-brand-600/20">
-        <WalletCards className="size-5" strokeWidth={2.3} />
-      </span>
-      <span className="leading-tight">
-        <span className="block text-xl font-bold tracking-tight text-slate-950">
-          PayConnect
-        </span>
-        <span className="mt-0.5 block text-[11px] font-medium text-slate-500">
-          by Nile
-        </span>
-      </span>
-    </Link>
-  );
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const { refresh, status } = useAuth();
 
   const [loading, setLoading] = React.useState(false);
-  const [googleReady, setGoogleReady] = React.useState(false);
   const [googleError, setGoogleError] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
-
-  const googleButtonRef = React.useRef<HTMLDivElement>(null);
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   React.useEffect(() => {
     if (status === "authenticated") router.replace("/dashboard");
   }, [status, router]);
 
-  const onGoogleCredential = React.useRef<
-    (credential: string) => Promise<void>
-  >(async () => {});
-
-  onGoogleCredential.current = async (credential) => {
+  // One credential exchange for Google, whatever the entry point: the API signs
+  // an existing identity in and creates a new one when it has never been seen.
+  async function signInWithGoogle(credential: string) {
     setLoading(true);
     setGoogleError("");
 
@@ -126,31 +75,7 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  React.useEffect(() => {
-    const target = googleButtonRef.current;
-    const googleID = window.google?.accounts.id;
-
-    if (!googleReady || !googleClientId || !target || !googleID) return;
-
-    target.replaceChildren();
-
-    googleID.initialize({
-      client_id: googleClientId,
-      callback: (response) => {
-        void onGoogleCredential.current(response.credential);
-      },
-    });
-
-    googleID.renderButton(target, {
-      theme: "outline",
-      size: "large",
-      text: "continue_with",
-      shape: "rectangular",
-      width: Math.min(target.clientWidth || 420, 420),
-    });
-  }, [googleReady, googleClientId]);
+  }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -198,7 +123,7 @@ export default function LoginPage() {
           />
 
           <header className="relative z-10 flex items-center justify-between gap-5">
-            <Brand />
+            <AuthBrand />
             <span className="text-xs font-medium tracking-wide text-slate-500">
               Payments, connected
             </span>
@@ -300,7 +225,7 @@ export default function LoginPage() {
         {/* Login panel */}
         <section className="flex min-h-screen flex-col px-5 py-6 sm:px-8 lg:px-10 xl:px-16">
           <header className="flex items-center justify-between lg:hidden">
-            <Brand />
+            <AuthBrand />
           </header>
 
           <div className="flex flex-1 items-center justify-center py-10 sm:py-14 lg:py-8">
@@ -317,7 +242,7 @@ export default function LoginPage() {
 
               <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_70px_-45px_rgba(15,23,42,0.22)] sm:p-9">
                 <div className="hidden lg:block">
-                  <Brand />
+                  <AuthBrand />
                 </div>
 
                 <div className="mt-2 lg:mt-9">
@@ -408,43 +333,13 @@ export default function LoginPage() {
                   </Button>
                 </form>
 
-                <div className="my-6 flex items-center gap-3">
-                  <span className="h-px flex-1 bg-slate-200" />
-                  <span className="text-xs text-slate-400">or continue with</span>
-                  <span className="h-px flex-1 bg-slate-200" />
-                </div>
+                <GoogleDivider label="or continue with" />
 
-                {googleClientId ? (
-                  <>
-                    <Script
-                      src="https://accounts.google.com/gsi/client"
-                      strategy="afterInteractive"
-                      onLoad={() => setGoogleReady(true)}
-                      onError={() =>
-                        setGoogleError("Google sign-in could not load. Please try again.")
-                      }
-                    />
-                    <div
-                      ref={googleButtonRef}
-                      className="flex min-h-11 w-full justify-center overflow-hidden rounded-xl [&>div]:max-w-full"
-                    />
-                    {loading && (
-                      <p className="mt-2 text-center text-xs text-slate-500">
-                        Completing secure sign-in…
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    className="h-12 w-full rounded-xl"
-                    disabled
-                  >
-                    Google sign-in is not configured
-                  </Button>
-                )}
+                <GoogleAuthButton
+                  onCredential={signInWithGoogle}
+                  onError={setGoogleError}
+                  pending={loading}
+                />
 
                 {googleError && (
                   <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
