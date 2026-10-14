@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Globe, KeyRound, LayoutDashboard, Receipt, Settings } from "lucide-react";
+import { FlaskConical, Globe, KeyRound, LayoutDashboard, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -10,7 +10,7 @@ const ITEMS = [
   { href: "/payments", label: "Payments", icon: Receipt },
   { href: "/providers", label: "Providers", icon: Globe },
   { href: "/api-keys", label: "Keys", icon: KeyRound },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/test-arena", label: "Arena", icon: FlaskConical },
 ];
 
 export function BottomNav() {

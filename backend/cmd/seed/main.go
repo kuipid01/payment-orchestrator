@@ -160,10 +160,17 @@ func seedKeys(db *gorm.DB, vlt *vault.Vault, merchantID string, cfg config.Confi
 		if err != nil {
 			log.Fatalf("seed key: %v", err)
 		}
+		var encrypted []byte
+		if vlt != nil && spec.env == constants.EnvironmentTest {
+			if enc, encErr := vlt.Encrypt(full); encErr == nil {
+				encrypted = enc
+			}
+		}
 		key := &api_keys.Key{
 			ID: gormx.NewID("key"), MerchantID: merchantID,
 			Environment: spec.env, Type: string(spec.keyType), Prefix: prefix, Name: spec.name,
 			KeyHash: vault.HashKey(full), SecretMasked: masked, CreatedBy: createdBy,
+			SecretEncrypted: encrypted,
 			CreatedAt: spec.createdAt, UpdatedAt: spec.createdAt,
 		}
 		if err := repo.Create(key); err != nil {

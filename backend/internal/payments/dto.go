@@ -17,6 +17,7 @@ type CreateRequest struct {
 	Description string         `json:"description"`
 	CallbackURL string         `json:"callback_url"`
 	Customer    CustomerInput  `json:"customer"`
+	Email       string         `json:"email,omitempty"`
 	Metadata    map[string]any `json:"metadata"`
 }
 

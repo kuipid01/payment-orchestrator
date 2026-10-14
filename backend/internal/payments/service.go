@@ -702,6 +702,9 @@ func normalizeCreate(in CreateInput) (CreateRequest, int64, string, string, erro
 	if len(reference) > 128 {
 		return req, 0, "", "", apperrors.Validation(apperrors.CodeInvalidReference, "reference must be at most 128 characters.")
 	}
+	if req.Customer.Email == "" && req.Email != "" {
+		req.Customer.Email = strings.TrimSpace(req.Email)
+	}
 	if req.Customer.Email == "" {
 		return req, 0, "", "", apperrors.Validation(apperrors.CodeValidationError, "customer.email is required.")
 	}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
+  FlaskConical,
   Globe,
   KeyRound,
   LayoutDashboard,
@@ -47,6 +48,7 @@ const NAV: {
       { href: "/api-keys", label: "API Keys", icon: <KeyRound className="size-4" /> },
       { href: "/webhooks", label: "Webhooks", icon: <Webhook className="size-4" /> },
       { href: "/logs", label: "Logs", icon: <BookOpen className="size-4" /> },
+      { href: "/test-arena", label: "Test Arena", icon: <FlaskConical className="size-4" />, badge: "new" },
     ],
   },
   {
@@ -92,6 +94,11 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 >
                   <span className={active ? "text-slate-950" : "text-slate-400"}>{item.icon}</span>
                   {item.label}
+                  {item.badge && (
+                    <span className="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
