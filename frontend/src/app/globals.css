@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@theme {
+  /* PayConnect brand — gold #E7B000 primary, light-first surfaces.
+     Palette extracted from the approved color sheet:
+     gold #E7B000 / #A37D00 · teal #09B8BD / #36F3FC / #015153 · red #A30104 */
+  --color-brand-50: #fdf8e7;
+  --color-brand-100: #faefc8;
+  --color-brand-200: #f5e191;
+  --color-brand-300: #efd35b;
+  --color-brand-400: #ebc22a;
+  --color-brand-500: #e7b000;
+  --color-brand-600: #c29300;
+  --color-brand-700: #9c7600;
+  --color-brand-800: #765900;
+  --color-brand-900: #503c00;
+
+  /* Success = brand teal (overrides Tailwind emerald scale) */
+  --color-emerald-50: #e6fafb;
+  --color-emerald-100: #c2f2f4;
+  --color-emerald-200: #8ae6ea;
+  --color-emerald-300: #4dd6dc;
+  --color-emerald-400: #22c4cb;
+  --color-emerald-500: #09b8bd;
+  --color-emerald-600: #07969c;
+  --color-emerald-700: #05787e;
+  --color-emerald-800: #045f64;
+  --color-emerald-900: #015153;
+
+  /* Info = bright brand cyan (overrides Tailwind sky scale) */
+  --color-sky-50: #eafdfe;
+  --color-sky-100: #cbfbfd;
+  --color-sky-200: #98f7fb;
+  --color-sky-300: #65f2f9;
+  --color-sky-400: #36f3fc;
+  --color-sky-500: #14dce8;
+  --color-sky-600: #0bb4c0;
+  --color-sky-700: #0a8d99;
+  --color-sky-800: #096e79;
+  --color-sky-900: #084f59;
+
+  /* Warning = deep gold (overrides Tailwind amber scale) */
+  --color-amber-50: #fdf6e3;
+  --color-amber-100: #faebbf;
+  --color-amber-200: #f5dd8f;
+  --color-amber-300: #efcb54;
+  --color-amber-400: #ebbb26;
+  --color-amber-500: #d9a400;
+  --color-amber-600: #b88900;
+  --color-amber-700: #966f00;
+  --color-amber-800: #745600;
+  --color-amber-900: #523c00;
+
+  /* Danger = brand red (overrides Tailwind red scale) */
+  --color-red-50: #fceaea;
+  --color-red-100: #f8d2d2;
+  --color-red-200: #f4a9b9;
+  --color-red-300: #e87f85;
+  --color-red-400: #dc5257;
+  --color-red-500: #c22427;
+  --color-red-600: #a30104;
+  --color-red-700: #870104;
+  --color-red-800: #6b0103;
+  --color-red-900: #4f0102;
+
+  --font-sans: "Kanit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-display: "Kanit", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 14px;
+  --radius-btn: 10px;
+
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-lift: 0 4px 16px rgba(15, 23, 42, 0.07);
+
+  --animate-fade-up: fade-up 0.5s ease-out both;
+  --animate-fade-in: fade-in 0.4s ease-out both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.payconnect-loading-wordmark {
+  color: transparent;
+  background-image: linear-gradient(to right, var(--color-brand-600) 50%, var(--color-slate-400) 50%);
+  background-size: 200% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: payconnect-wordmark-fill 1.8s linear infinite;
+}
+
+@keyframes payconnect-wordmark-fill {
+  to { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payconnect-loading-wordmark {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+/* Base */
+html {
+  scroll-behavior: smooth;
+}
+body {
+  background: #ffffff;
+  color: var(--color-slate-900);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-brand-100);
+}
+
+/* Thin, quiet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
