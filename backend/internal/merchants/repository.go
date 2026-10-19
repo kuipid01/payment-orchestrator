@@ -444,6 +444,15 @@ func (r *Repository) DeveloperByUser(userID string) (*Developer, error) {
 	return &developer, nil
 }
 
+// DeveloperByID loads a developer profile by its id.
+func (r *Repository) DeveloperByID(id string) (*Developer, error) {
+	var developer Developer
+	if err := r.DB.First(&developer, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &developer, nil
+}
+
 // DeveloperMerchantAccessesByMerchant lists invitations for a merchant.
 func (r *Repository) DeveloperMerchantAccessesByMerchant(merchantID string) ([]DeveloperMerchantAccess, error) {
 	var accesses []DeveloperMerchantAccess

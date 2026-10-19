@@ -7,6 +7,7 @@ import { KeyRound, Plus, RotateCcw, Trash2, UserCheck } from "lucide-react";
 import { Badge, Button, Card, EmptyState, EnvironmentBadge, PageHeader } from "@/components/ui";
 import { MaskedSecret, Modal } from "@/components/ui/part2";
 import { toast } from "@/components/ui/toaster";
+import { useAuth } from "@/components/providers/auth-provider";
 import { useAsync } from "@/hooks/use-async";
 import { listApiKeys, listApplications, listDevelopers, permanentlyDeleteRevokedApiKey, revokeApiKey, revealApiKey, rotateApiKey } from "@/lib/api";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -14,6 +15,8 @@ import type { ApiKey } from "@/lib/types";
 
 export default function ApiKeysPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canManageApplications = user?.role === "Owner" || user?.role === "Admin";
   const { data, loading, refetch } = useAsync(() => listApiKeys(), [], ["api-keys"]);
   const apps = useAsync(listApplications, [], ["applications"]);
   const developers = useAsync(listDevelopers, [], ["developers"]);
@@ -107,39 +110,43 @@ export default function ApiKeysPage() {
             revealable={k.revealable && k.status === "active"}
             onReveal={k.revealable && k.status === "active" ? () => revealApiKey(k.id) : undefined}
           />
-          <Button
-            variant="secondary"
-            size="icon"
-            title="Rotate key"
-            aria-label="Rotate key"
-            disabled={busy !== null || k.status !== "active"}
-            onClick={() => void onRotate(k)}
-          >
-            <RotateCcw className="size-3.5" />
-          </Button>
-          {k.status === "active" ? (
-            <Button
-              variant="danger"
-              size="icon"
-              title="Revoke key"
-              aria-label={`Revoke ${k.label}`}
-              disabled={busy !== null}
-              onClick={() => setConfirmRevoke(k)}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-          ) : k.status === "revoked" ? (
-            <Button
-              variant="danger"
-              size="icon"
-              title="Delete revoked key"
-              aria-label={`Delete revoked key ${k.label}`}
-              disabled={busy !== null}
-              onClick={() => setConfirmDelete(k)}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-          ) : null}
+          {canManageApplications && (
+            <>
+              <Button
+                variant="secondary"
+                size="icon"
+                title="Rotate key"
+                aria-label="Rotate key"
+                disabled={busy !== null || k.status !== "active"}
+                onClick={() => void onRotate(k)}
+              >
+                <RotateCcw className="size-3.5" />
+              </Button>
+              {k.status === "active" ? (
+                <Button
+                  variant="danger"
+                  size="icon"
+                  title="Revoke key"
+                  aria-label={`Revoke ${k.label}`}
+                  disabled={busy !== null}
+                  onClick={() => setConfirmRevoke(k)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              ) : k.status === "revoked" ? (
+                <Button
+                  variant="danger"
+                  size="icon"
+                  title="Delete revoked key"
+                  aria-label={`Delete revoked key ${k.label}`}
+                  disabled={busy !== null}
+                  onClick={() => setConfirmDelete(k)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
     );
@@ -159,13 +166,13 @@ export default function ApiKeysPage() {
       <PageHeader
         title="API Keys"
         description="These keys are what developers use — never your provider secrets."
-        actions={
+        actions={canManageApplications ? (
           <Link href="/applications/new">
             <Button size="sm">
               <Plus className="size-4" /> Create key via application
             </Button>
           </Link>
-        }
+        ) : null}
       />
 
       {rotated ? (
@@ -245,7 +252,7 @@ export default function ApiKeysPage() {
       </div>
 
       <Modal
-        open={confirmRevoke !== null}
+        open={canManageApplications && confirmRevoke !== null}
         onClose={() => {
           if (busy === null) setConfirmRevoke(null);
         }}
@@ -274,7 +281,7 @@ export default function ApiKeysPage() {
       </Modal>
 
       <Modal
-        open={confirmDelete !== null}
+        open={canManageApplications && confirmDelete !== null}
         onClose={() => {
           if (busy === null) setConfirmDelete(null);
         }}

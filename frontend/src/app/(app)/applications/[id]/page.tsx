@@ -43,6 +43,7 @@ import {
 } from "@/lib/api";
 import { formatNumber, timeAgo } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const TABS = [
   { value: "overview", label: "Overview" },
@@ -56,6 +57,8 @@ const TABS = [
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canManageApplications = user?.role === "Owner" || user?.role === "Admin";
 
   const app = useAsync(
     () => getApplication(params.id),
@@ -275,7 +278,7 @@ export default function ApplicationDetailPage() {
         ]}
         title={application.name}
         description={application.description}
-        actions={
+        actions={canManageApplications ? (
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm">
               {application.status === "active" ? (
@@ -289,11 +292,11 @@ export default function ApplicationDetailPage() {
                 : "Resume"}
             </Button>
           </div>
-        }
+        ) : null}
       />
 
       <Tabs
-        tabs={TABS}
+        tabs={canManageApplications ? TABS : TABS.filter((item) => item.value !== "settings")}
         value={tab}
         onValueChange={setTab}
         className="mb-4 w-fit max-w-full"
@@ -397,7 +400,7 @@ export default function ApplicationDetailPage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            {canManageApplications && <div className="flex flex-wrap gap-2">
               <Button
                 variant="secondary"
                 size="sm"
@@ -418,7 +421,7 @@ export default function ApplicationDetailPage() {
                   ? "Creating…"
                   : "Create production key"}
               </Button>
-            </div>
+            </div>}
           </div>
 
           {createdKey && (
@@ -518,7 +521,7 @@ export default function ApplicationDetailPage() {
                     }
                   />
 
-                  {key.status === "active" && (
+                  {canManageApplications && key.status === "active" && (
                     <Button
                       variant="danger"
                       size="icon"
@@ -534,7 +537,7 @@ export default function ApplicationDetailPage() {
                       <Trash2 className="size-3.5" />
                     </Button>
                   )}
-                  {key.status === "revoked" && (
+                  {canManageApplications && key.status === "revoked" && (
                     <Button
                       variant="danger"
                       size="icon"
@@ -569,14 +572,14 @@ export default function ApplicationDetailPage() {
             )}
           </div>
 
-          <div className="border-t border-slate-100 p-4 text-center">
+          {canManageApplications && <div className="border-t border-slate-100 p-4 text-center">
             <Link
               href="/api-keys"
               className="text-[12.5px] font-medium text-brand-600 hover:underline"
             >
               Manage all API keys →
             </Link>
-          </div>
+          </div>}
         </Card>
       )}
 
@@ -739,7 +742,7 @@ export default function ApplicationDetailPage() {
         </Card>
       )}
 
-      {tab === "settings" && (
+      {canManageApplications && tab === "settings" && (
         <Card>
           <div className="p-5 sm:p-6">
             <div className="flex items-start gap-3">
@@ -775,7 +778,7 @@ export default function ApplicationDetailPage() {
       )}
 
       <Modal
-        open={confirmOpen}
+        open={canManageApplications && confirmOpen}
         onClose={() => {
           if (!remove.isPending) setConfirmOpen(false);
         }}
@@ -811,7 +814,7 @@ export default function ApplicationDetailPage() {
       </Modal>
 
       <Modal
-        open={keyToRevoke !== null}
+        open={canManageApplications && keyToRevoke !== null}
         onClose={() => {
           if (!revokeKey.isPending) setKeyToRevoke(null);
         }}
@@ -853,7 +856,7 @@ export default function ApplicationDetailPage() {
       </Modal>
 
       <Modal
-        open={keyToDelete !== null}
+        open={canManageApplications && keyToDelete !== null}
         onClose={() => {
           if (!deleteRevokedKey.isPending) setKeyToDelete(null);
         }}

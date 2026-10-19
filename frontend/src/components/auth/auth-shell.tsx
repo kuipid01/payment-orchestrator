@@ -163,7 +163,7 @@ export function AuthStatusIcon({
   return (
     <div
       className={cn(
-        "flex size-12 items-center justify-center rounded-2xl border",
+        "flex size-12!  items-center shrink-0 justify-center rounded-2xl border",
         AUTH_ICON_TONES[tone],
       )}
     >

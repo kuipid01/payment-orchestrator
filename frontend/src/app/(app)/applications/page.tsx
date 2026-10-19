@@ -15,6 +15,7 @@ import { Modal } from "@/components/ui/part2";
 import { toast } from "@/components/ui/toaster";
 
 import { useAsync } from "@/hooks/use-async";
+import { useAuth } from "@/components/providers/auth-provider";
 
 import { deleteApplication, listApplications } from "@/lib/api";
 
@@ -29,6 +30,8 @@ const PAGE_SIZE = 10;
 export default function ApplicationsPage() {
 
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canManageApplications = user?.role === "Owner" || user?.role === "Admin";
 
   const { data, loading } = useAsync(listApplications, [], ["applications"]);
 
@@ -98,8 +101,7 @@ export default function ApplicationsPage() {
 
         description="Each application groups payments, webhooks, logs and developer access, with separate test and production API keys."
 
-        actions={
-
+        actions={canManageApplications ? (
           <Link href="/applications/new">
 
             <Button size="sm">
@@ -109,8 +111,7 @@ export default function ApplicationsPage() {
             </Button>
 
           </Link>
-
-        }
+        ) : null}
 
       />
 
@@ -130,15 +131,14 @@ export default function ApplicationsPage() {
 
             description="Create an application to generate your first API key."
 
-            action={
-
+            action={canManageApplications ? (
               <Link href="/applications/new">
 
                 <Button>Create Application</Button>
 
               </Link>
 
-            }
+            ) : null}
 
           />
 
@@ -270,8 +270,7 @@ export default function ApplicationsPage() {
 
                 </Link>
 
-                <button
-
+                {canManageApplications && <button
                   type="button"
 
                   aria-label={`Delete ${app.name}`}
@@ -286,7 +285,7 @@ export default function ApplicationsPage() {
 
                   <Trash2 className="size-4" />
 
-                </button>
+                </button>}
 
               </div>
 
@@ -362,7 +361,7 @@ export default function ApplicationsPage() {
 
       <Modal
 
-        open={pendingDelete !== null}
+        open={canManageApplications && pendingDelete !== null}
 
         onClose={() => {
 

@@ -48,6 +48,9 @@ type User struct {
 // TableName binds the model to the users table.
 func (User) TableName() string { return "users" }
 
+// RoleName exposes the selected merchant membership role to authorization middleware.
+func (u User) RoleName() string { return u.Role }
+
 // IsActive reports whether the user may authenticate.
 func (u *User) IsActive() bool { return u != nil && u.Status != "revoked" }
 

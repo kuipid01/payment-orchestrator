@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	apihttp "github.com/kuipid01/payconnect/internal/http"
+	"github.com/kuipid01/payconnect/internal/identityhelp"
 	"github.com/kuipid01/payconnect/internal/merchants"
 	"github.com/kuipid01/payconnect/internal/platform/identity"
 )
@@ -21,7 +22,7 @@ func NewHandler(svc *Service, responder *apihttp.Responder) *Handler {
 
 func (h *Handler) List(c *fiber.Ctx) error {
 	principal := identity.From(c)
-	developers, err := h.svc.List(principal.MerchantID)
+	developers, err := h.svc.List(principal.MerchantID, principal.UserID, identityhelp.ActorRole(principal))
 	if err != nil {
 		return h.responder.Error(c, err)
 	}

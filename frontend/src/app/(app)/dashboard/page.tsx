@@ -50,7 +50,7 @@ import {
 } from "@/lib/api";
 import { formatAmount, formatCompact, formatNumber, timeAgo } from "@/lib/utils";
 
-const brandGold = "#E7B000";
+const brandGold = "#E7B000"; 
 
 export default function DashboardPage() {
   const metrics = useAsync(getDashboardMetrics, []);

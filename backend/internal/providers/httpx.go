@@ -132,10 +132,23 @@ func MapStatus(provider string, status int, body map[string]any) error {
 	case status == http.StatusTooManyRequests:
 		return apperrors.ProviderUnavailable(provider, errors.New("provider rate limit"))
 	case status >= 400:
-		return apperrors.ProviderRequestFailed(provider, errors.New(providerMessage(body)))
+		message := providerMessage(body)
+		return apperrors.ProviderRequestFailed(provider, errors.New(message)).WithDetails(map[string]any{
+			"provider_status":  status,
+			"provider_message": boundedProviderMessage(message),
+		})
 	default:
 		return nil
 	}
+}
+
+func boundedProviderMessage(message string) string {
+	const maxRunes = 256
+	runes := []rune(strings.TrimSpace(message))
+	if len(runes) > maxRunes {
+		return string(runes[:maxRunes])
+	}
+	return string(runes)
 }
 
 // ProviderMessage extracts a human-readable provider error message.

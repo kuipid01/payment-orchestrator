@@ -88,6 +88,8 @@ export default function DevelopersPage() {
 }
 
 function TeamPanel() {
+  const { user } = useAuth();
+  const canManageTeam = user?.role === "Owner" || user?.role === "Admin";
   const { data, loading } = useAsync(
     listDevelopers,
     [],
@@ -147,7 +149,11 @@ function TeamPanel() {
         <EmptyState
           icon={<Users className="size-5" />}
           title="No developers yet"
-          description="Invite a developer to start building with your payment infrastructure."
+          description={
+            canManageTeam
+              ? "Invite a developer to start building with your payment infrastructure."
+              : "Developers you invite will appear here."
+          }
           action={
             <Link href="/developers/invite">
               <Button>
@@ -198,9 +204,13 @@ function TeamPanel() {
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">Team members</h2>
+              <h2 className="text-sm font-semibold text-slate-900">
+                {canManageTeam ? "Team members" : "Developers you invited"}
+              </h2>
               <p className="mt-1 text-xs text-slate-500">
-                {filtered.length} of {developers.length} developers
+                {canManageTeam
+                  ? `${filtered.length} of ${developers.length} developers`
+                  : "Only invitations you sent appear here."}
               </p>
             </div>
             <div className="relative w-full lg:max-w-xs">

@@ -48,6 +48,28 @@ const VALID: ProviderKind[] = [
 
 type Environment = "test" | "live";
 
+function providerRejectionDetails(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("error" in error)) {
+    return null;
+  }
+  const apiError = error.error;
+  if (typeof apiError !== "object" || apiError === null || !("details" in apiError)) {
+    return null;
+  }
+  const details = apiError.details;
+  if (typeof details !== "object" || details === null) {
+    return null;
+  }
+  const message = "provider_message" in details ? details.provider_message : null;
+  const status = "provider_status" in details ? details.provider_status : null;
+  if (typeof message !== "string" || message === "") {
+    return null;
+  }
+  return typeof status === "number"
+    ? `${message} (HTTP ${status})`
+    : message;
+}
+
 function Progress({ step }: { step: 1 | 2 }) {
   const items = [
     {
@@ -255,9 +277,10 @@ export default function ConnectProviderPage() {
       toast(
         "error",
         `${meta.name} connection failed`,
-        error instanceof Error
-          ? error.message
-          : "Check your credentials and try again."
+        providerRejectionDetails(error) ??
+          (error instanceof Error
+            ? error.message
+            : "Check your credentials and try again.")
       );
     } finally {
       setValidating(false);

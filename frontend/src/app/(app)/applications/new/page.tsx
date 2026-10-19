@@ -27,6 +27,7 @@ import {
 } from "@/components/ui";
 import { toast } from "@/components/ui/toaster";
 import { useAsync } from "@/hooks/use-async";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
   createApplication,
   inviteDeveloper,
@@ -51,6 +52,8 @@ type DeveloperMode = "existing" | "invite";
 export default function NewApplicationPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canManageApplications = user?.role === "Owner" || user?.role === "Admin";
 
   const developers = useAsync(
     listDevelopers,
@@ -226,6 +229,20 @@ export default function NewApplicationPage() {
         "Select and copy the key manually."
       );
     }
+  }
+
+  if (!canManageApplications) {
+    return (
+      <Card className="p-6">
+        <h1 className="text-lg font-semibold text-slate-900">Read-only access</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Only organization owners and admins can create applications.
+        </p>
+        <Link href="/applications" className="mt-5 inline-flex">
+          <Button variant="secondary">Back to applications</Button>
+        </Link>
+      </Card>
+    );
   }
 
   if (created) {

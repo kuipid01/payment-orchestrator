@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -32,6 +33,7 @@ import {
 
 export default function InviteDeveloperPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
@@ -97,6 +99,7 @@ export default function InviteDeveloperPage() {
         name: name.trim() || normalizedEmail.split("@")[0],
         permissions: Array.from(permissions),
       });
+      await queryClient.invalidateQueries({ queryKey: ["developers"] });
 
       toast(
         "success",

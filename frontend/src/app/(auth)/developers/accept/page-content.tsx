@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   LoaderCircle,
   LogIn,
@@ -50,6 +52,8 @@ export function AcceptDeveloperInvitationContent() {
   const [name, setName] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirm, setShowConfirm] = React.useState(false);
   const previewStarted = React.useRef(false);
 
   // Mount resolves the token; it never accepts. Accepting is an explicit action.
@@ -302,16 +306,27 @@ export function AcceptDeveloperInvitationContent() {
               <Label htmlFor="invite-password" className="text-[13px] font-semibold text-slate-800">
                 Password
               </Label>
-              <Input
-                id="invite-password"
-                type="password"
-                autoComplete={preview?.has_identity ? "current-password" : "new-password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={preview?.has_identity ? "Your existing password" : "At least 12 characters"}
-                required
-                className="h-12 rounded-xl border-slate-200 text-sm placeholder:text-slate-400 focus-visible:ring-brand-500"
-              />
+              <div className="relative">
+                <Input
+                  id="invite-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={preview?.has_identity ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={preview?.has_identity ? "Your existing password" : "At least 12 characters"}
+                  required
+                  className="h-12 rounded-xl border-slate-200 pr-11 text-sm placeholder:text-slate-400 focus-visible:ring-brand-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
 
             {preview?.has_identity ? null : (
@@ -319,16 +334,27 @@ export function AcceptDeveloperInvitationContent() {
                 <Label htmlFor="invite-confirm" className="text-[13px] font-semibold text-slate-800">
                   Confirm password
                 </Label>
-                <Input
-                  id="invite-confirm"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                  placeholder="Repeat your password"
-                  required
-                  className="h-12 rounded-xl border-slate-200 text-sm placeholder:text-slate-400 focus-visible:ring-brand-500"
-                />
+                <div className="relative">
+                  <Input
+                    id="invite-confirm"
+                    type={showConfirm ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={(event) => setConfirm(event.target.value)}
+                    placeholder="Repeat your password"
+                    required
+                    className="h-12 rounded-xl border-slate-200 pr-11 text-sm placeholder:text-slate-400 focus-visible:ring-brand-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((value) => !value)}
+                    aria-label={showConfirm ? "Hide confirmation password" : "Show confirmation password"}
+                    aria-pressed={showConfirm}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                  >
+                    {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
                 <p className="text-[11px] leading-5 text-slate-500">
                   At least {MINIMUM_PASSWORD_LENGTH} characters.
                 </p>

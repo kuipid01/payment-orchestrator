@@ -83,7 +83,7 @@ func NewService(repo *merchants.Repository, sender mailer.VerificationSender, ba
 	return &Service{Repo: repo, Mailer: sender, BaseURL: strings.TrimRight(baseURL, "/"), Sessions: sessions}
 }
 
-func (s *Service) List(merchantID string) ([]DeveloperResponse, error) {
+func (s *Service) List(merchantID, actorID, actorRole string) ([]DeveloperResponse, error) {
 	if merchantID == "" {
 		return nil, apperrors.Validation(apperrors.CodeValidationError, "merchantId is required.")
 	}
@@ -96,6 +96,15 @@ func (s *Service) List(merchantID string) ([]DeveloperResponse, error) {
 		return nil, err
 	}
 	accesses := append(active, pending...)
+	if actorRole != "Owner" && actorRole != "Admin" {
+		visible := accesses[:0]
+		for _, access := range accesses {
+			if access.InvitedBy == actorID {
+				visible = append(visible, access)
+			}
+		}
+		accesses = visible
+	}
 	applicationIDs := s.merchantApplicationIDs(merchantID)
 	developers := make([]DeveloperResponse, 0, len(accesses))
 	for _, access := range accesses {
@@ -107,12 +116,16 @@ func (s *Service) List(merchantID string) ([]DeveloperResponse, error) {
 			if access.DeveloperID == nil {
 				continue
 			}
-			user, err := s.Repo.UserByID(*access.DeveloperID)
+			developer, err := s.Repo.DeveloperByID(*access.DeveloperID)
 			if err != nil {
 				continue
 			}
-			id = *access.DeveloperID
-			developerID = *access.DeveloperID
+			user, err := s.Repo.UserByID(developer.UserID)
+			if err != nil {
+				continue
+			}
+			id = developer.ID
+			developerID = developer.ID
 			name = user.Name
 			email = user.Email
 		}
