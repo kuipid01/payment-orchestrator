@@ -38,7 +38,12 @@ func (a *Adapter) Name() constants.Provider { return constants.ProviderFlutterwa
 
 // TestCredentials calls GET /balances.
 func (a *Adapter) TestCredentials(ctx context.Context, creds providers.Credentials) error {
-	result, err := a.call(ctx, http.MethodGet, "/balances", nil, true, creds.SecretKey)
+	possibleEndpoints := []string{
+		"/balances",
+		"/balances?currency=NGN",
+		"/transactions",
+	}
+	result, err := a.call(ctx, http.MethodGet, possibleEndpoints, nil, true, creds.SecretKey)
 	if err != nil {
 		return err
 	}
@@ -55,6 +60,9 @@ func (a *Adapter) TestCredentials(ctx context.Context, creds providers.Credentia
 // CreatePayment starts a hosted checkout. Flutterwave takes amounts in major
 // units, so the adapter formats them as a decimal string.
 func (a *Adapter) CreatePayment(ctx context.Context, creds providers.Credentials, req providers.PaymentRequest) (*providers.PaymentResult, error) {
+	possibleEndpoints := []string{
+		"/payments",
+	}
 	payload := createRequest{
 		TxRef:       req.Reference,
 		Amount:      providers.FormatMajor(req.AmountMinor, req.Currency),
@@ -67,7 +75,7 @@ func (a *Adapter) CreatePayment(ctx context.Context, creds providers.Credentials
 		},
 		Meta: req.Metadata,
 	}
-	result, err := a.call(ctx, http.MethodPost, "/payments", payload, false, creds.SecretKey)
+	result, err := a.call(ctx, http.MethodPost, possibleEndpoints, payload, false, creds.SecretKey)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +108,10 @@ func (a *Adapter) GetPayment(ctx context.Context, creds providers.Credentials, r
 
 // VerifyPayment reconciles a transaction with Flutterwave.
 func (a *Adapter) VerifyPayment(ctx context.Context, creds providers.Credentials, reference string) (*providers.PaymentResult, error) {
-	path := "/transactions/verify_by_reference?tx_ref=" + url.QueryEscape(reference)
-	result, err := a.call(ctx, http.MethodGet, path, nil, true, creds.SecretKey)
+	possibleEndpoints := []string{
+		"/transactions/verify_by_reference?tx_ref=" + url.QueryEscape(reference),
+	}
+	result, err := a.call(ctx, http.MethodGet, possibleEndpoints, nil, true, creds.SecretKey)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +148,10 @@ func (a *Adapter) RefundPayment(ctx context.Context, creds providers.Credentials
 	if req.AmountMinor > 0 {
 		payload.Amount = providers.FormatMajor(req.AmountMinor, req.Currency)
 	}
-	result, err := a.call(ctx, http.MethodPost, "/refunds", payload, false, creds.SecretKey)
+	possibleEndpoints := []string{
+		"/refunds",
+	}
+	result, err := a.call(ctx, http.MethodPost, possibleEndpoints, payload, false, creds.SecretKey)
 	if err != nil {
 		return nil, err
 	}

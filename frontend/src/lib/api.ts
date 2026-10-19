@@ -638,6 +638,8 @@ export function createProviderConnection(input: {
   provider: ProviderConnection["provider"];
   environment: ProviderConnection["environment"];
   secretKey: string;
+  apiKey?: string;
+  contractCode?: string;
   displayName?: string;
   isDefault?: boolean;
   /** Optional inbound webhook signing value, for providers that need one. */
@@ -651,7 +653,11 @@ export function createProviderConnection(input: {
       display_name: input.displayName ?? "",
       is_default: input.isDefault ?? false,
       webhook_secret: input.webhookSecret ?? "",
-      credentials: { secret_key: input.secretKey },
+      credentials: {
+        secret_key: input.secretKey,
+        ...(input.apiKey === undefined ? {} : { api_key: input.apiKey }),
+        ...(input.contractCode === undefined ? {} : { contract_code: input.contractCode }),
+      },
     },
   }).then(toProviderConnection);
 }
@@ -669,14 +675,22 @@ export function setProviderWebhookSecret(id: string, webhookSecret: string): Pro
 
 export function updateProviderConnection(
   id: string,
-  input: { displayName?: string; isDefault?: boolean; secretKey?: string },
+  input: { displayName?: string; isDefault?: boolean; secretKey?: string; apiKey?: string; contractCode?: string },
 ): Promise<ProviderConnection> {
   return request<ProviderConnectionResponse>(`/providers/connections/${encodeURIComponent(id)}`, {
     method: "PATCH",
     data: {
       ...(input.displayName === undefined ? {} : { display_name: input.displayName }),
       ...(input.isDefault === undefined ? {} : { is_default: input.isDefault }),
-      ...(input.secretKey === undefined ? {} : { credentials: { secret_key: input.secretKey } }),
+      ...(input.secretKey === undefined && input.apiKey === undefined && input.contractCode === undefined
+        ? {}
+        : {
+            credentials: {
+              ...(input.secretKey === undefined ? {} : { secret_key: input.secretKey }),
+              ...(input.apiKey === undefined ? {} : { api_key: input.apiKey }),
+              ...(input.contractCode === undefined ? {} : { contract_code: input.contractCode }),
+            },
+          }),
     },
   }).then(toProviderConnection);
 }

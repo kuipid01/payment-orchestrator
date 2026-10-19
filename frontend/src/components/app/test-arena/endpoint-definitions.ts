@@ -106,7 +106,7 @@ export const ENDPOINTS: EndpointDef[] = [
           { value: "auto", label: "auto – Smart Routing (Auto-failover)" },
           { value: "paystack", label: "paystack – Paystack" },
           { value: "flutterwave", label: "flutterwave – Flutterwave" },
-          { value: "moniepoint", label: "moniepoint – Moniepoint" },
+          { value: "monnify", label: "monnify – Monnify" },
         ],
         description: "Choose a specific provider or let smart routing decide.",
       },

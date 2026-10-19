@@ -175,6 +175,8 @@ export default function ProviderDetailPage() {
   const [disconnectOpen, setDisconnectOpen] = React.useState(false);
   const [rotateOpen, setRotateOpen] = React.useState(false);
   const [newSecretKey, setNewSecretKey] = React.useState("");
+  const [newAPIKey, setNewAPIKey] = React.useState("");
+  const [newContractCode, setNewContractCode] = React.useState("");
   const [busy, setBusy] = React.useState<"test" | "default" | "delete" | "rotate" | null>(null);
   const [testOpen, setTestOpen] = React.useState(false);
   const [testAmount, setTestAmount] = React.useState("100");
@@ -298,10 +300,14 @@ export default function ProviderDetailPage() {
         provider: connection.provider,
         environment: connection.environment,
         secretKey: newSecretKey.trim(),
+        apiKey: connection.provider === "monnify" ? newAPIKey.trim() : undefined,
+        contractCode: connection.provider === "monnify" ? newContractCode.trim() : undefined,
         displayName: connection.displayName,
         isDefault: connection.isDefault,
       });
       setNewSecretKey("");
+      setNewAPIKey("");
+      setNewContractCode("");
       setRotateOpen(false);
       toast("success", "Credentials rotated", "New credentials verified and securely stored.");
       await refreshProvider();
@@ -460,6 +466,8 @@ export default function ProviderDetailPage() {
           if (busy !== "rotate") {
             setRotateOpen(false);
             setNewSecretKey("");
+            setNewAPIKey("");
+            setNewContractCode("");
           }
         }}
         title="Rotate credentials"
@@ -469,7 +477,12 @@ export default function ProviderDetailPage() {
             <Button variant="secondary" onClick={() => setRotateOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="provider-rotate-form" disabled={busy === "rotate" || !newSecretKey.trim()}>
+            <Button
+              type="submit"
+              form="provider-rotate-form"
+              disabled={busy === "rotate" || !newSecretKey.trim() ||
+                (connection.provider === "monnify" && (!newAPIKey.trim() || !newContractCode.trim()))}
+            >
               <RotateCcw className="size-4" /> {busy === "rotate" ? "Validating…" : "Validate and rotate"}
             </Button>
           </>
@@ -479,6 +492,28 @@ export default function ProviderDetailPage() {
           <p className="mb-3 text-[13px] leading-relaxed text-slate-600">
             We verify the new key with {meta.name} before it replaces the current one.
           </p>
+          {connection.provider === "monnify" ? (
+            <>
+              <SecretInput
+                value={newAPIKey}
+                onChange={(event) => setNewAPIKey(event.target.value)}
+                aria-label="Monnify API key"
+                placeholder="New Monnify API key"
+                required
+                autoComplete="off"
+                className="mb-3"
+              />
+              <Input
+                value={newContractCode}
+                onChange={(event) => setNewContractCode(event.target.value)}
+                aria-label="Monnify contract code"
+                placeholder="Monnify contract code"
+                required
+                autoComplete="off"
+                className="mb-3"
+              />
+            </>
+          ) : null}
           <SecretInput
             value={newSecretKey}
             onChange={(event) => setNewSecretKey(event.target.value)}

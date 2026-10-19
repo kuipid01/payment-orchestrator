@@ -86,7 +86,7 @@ func ParseMajor(value, currency string) (int64, error) {
 // DefaultCurrencyFor returns the settlement currency for a provider.
 func DefaultCurrencyFor(provider constants.Provider) string {
 	switch provider {
-	case constants.ProviderFlutterwave, constants.ProviderMoniepoint:
+	case constants.ProviderFlutterwave, constants.ProviderMonnify:
 		return "NGN"
 	default:
 		return "NGN"

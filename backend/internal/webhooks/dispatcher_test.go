@@ -133,7 +133,7 @@ func TestHasSignatureHeader(t *testing.T) {
 	if hasSignatureHeader(map[string]string{"Content-Type": "application/json"}) {
 		t.Error("content-type alone must not look like a signature header")
 	}
-	for _, header := range []string{"X-Paystack-Signature", "verif-hash", "x-moniepoint-signature", "x-signature"} {
+	for _, header := range []string{"X-Paystack-Signature", "verif-hash", "monnify-signature", "x-signature"} {
 		if !hasSignatureHeader(map[string]string{header: "abc"}) {
 			t.Errorf("%s should be detected as a signature header", header)
 		}

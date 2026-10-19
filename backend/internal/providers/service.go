@@ -19,8 +19,10 @@ import (
 // credentialPayload is the encrypted structure stored per connection. It is the
 // only place provider secrets live outside memory.
 type credentialPayload struct {
-	SecretKey string `json:"secret_key"`
-	PublicKey string `json:"public_key,omitempty"`
+	SecretKey    string `json:"secret_key"`
+	PublicKey    string `json:"public_key,omitempty"`
+	APIKey       string `json:"api_key,omitempty"`
+	ContractCode string `json:"contract_code,omitempty"`
 }
 
 // Service owns provider connections: validation, encryption, verification and
@@ -43,14 +45,16 @@ func NewService(repo *Repository, v *vault.Vault, registry Registry, recorder au
 
 // ConnectInput describes a new provider connection.
 type ConnectInput struct {
-	MerchantID  string
-	ActorName   string
-	ActorRole   string
-	Provider    constants.Provider
-	Environment string
-	DisplayName string
-	SecretKey   string
-	PublicKey   string
+	MerchantID   string
+	ActorName    string
+	ActorRole    string
+	Provider     constants.Provider
+	Environment  string
+	DisplayName  string
+	SecretKey    string
+	PublicKey    string
+	APIKey       string
+	ContractCode string
 	// WebhookSecret is the optional inbound webhook signing value for providers
 	// whose signature key is not the API secret key (Flutterwave).
 	WebhookSecret string
@@ -73,17 +77,25 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (*Connection, er
 	if err := validateCredentialShape(in.Provider, in.Environment, in.SecretKey); err != nil {
 		return nil, err
 	}
+	if err := validateProviderCredentialFields(in.Provider, in.APIKey, in.ContractCode); err != nil {
+		return nil, err
+	}
 
 	credentials := Credentials{
-		SecretKey:   in.SecretKey,
-		PublicKey:   strings.TrimSpace(in.PublicKey),
-		Environment: in.Environment,
+		SecretKey:    in.SecretKey,
+		PublicKey:    strings.TrimSpace(in.PublicKey),
+		APIKey:       strings.TrimSpace(in.APIKey),
+		ContractCode: strings.TrimSpace(in.ContractCode),
+		Environment:  in.Environment,
 	}
 	if err := adapter.TestCredentials(ctx, credentials); err != nil {
 		return nil, err
 	}
 
-	encrypted, err := s.Vault.Encrypt(mustJSON(credentialPayload{SecretKey: credentials.SecretKey, PublicKey: credentials.PublicKey}))
+	encrypted, err := s.Vault.Encrypt(mustJSON(credentialPayload{
+		SecretKey: credentials.SecretKey, PublicKey: credentials.PublicKey,
+		APIKey: credentials.APIKey, ContractCode: credentials.ContractCode,
+	}))
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +164,12 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (*Connection, er
 
 // UpdateInput carries mutable connection fields.
 type UpdateInput struct {
-	DisplayName *string
-	IsDefault   *bool
-	SecretKey   *string
-	PublicKey   *string
+	DisplayName  *string
+	IsDefault    *bool
+	SecretKey    *string
+	PublicKey    *string
+	APIKey       *string
+	ContractCode *string
 }
 
 // Update changes a connection's label, default flag and optionally its secret
@@ -164,6 +178,9 @@ func (s *Service) Update(merchantID, actorName, actorRole, id string, in UpdateI
 	connection, err := s.Repo.ByID(merchantID, id)
 	if err != nil {
 		return nil, apperrors.NotFound("", "Provider connection not found.")
+	}
+	if in.SecretKey == nil && (in.APIKey != nil || in.ContractCode != nil) {
+		return nil, apperrors.Validation(apperrors.CodeValidationError, "credentials.secret_key is required when updating provider credentials.")
 	}
 	now := s.Now().UTC()
 
@@ -185,9 +202,18 @@ func (s *Service) Update(merchantID, actorName, actorRole, id string, in UpdateI
 		if err := validateCredentialShape(constants.Provider(connection.Provider), connection.Environment, *in.SecretKey); err != nil {
 			return nil, err
 		}
+		if err := validateProviderCredentialFields(constants.Provider(connection.Provider), valueOrEmpty(in.APIKey), valueOrEmpty(in.ContractCode)); err != nil {
+			return nil, err
+		}
 		payload := credentialPayload{SecretKey: *in.SecretKey}
 		if in.PublicKey != nil {
 			payload.PublicKey = *in.PublicKey
+		}
+		if in.APIKey != nil {
+			payload.APIKey = *in.APIKey
+		}
+		if in.ContractCode != nil {
+			payload.ContractCode = *in.ContractCode
 		}
 		encrypted, err := s.Vault.Encrypt(mustJSON(payload))
 		if err != nil {
@@ -263,7 +289,7 @@ func (s *Service) Test(ctx context.Context, merchantID, actorName, actorRole, id
 			MerchantID: merchantID, ActorName: actorName, ActorRole: actorRole,
 			Action: "Provider verification failed", Detail: connection.Provider, Severity: "warning",
 		})
-		return nil, apperrors.ProviderAuthenticationFailed(connection.Provider, err)
+		return nil, err
 	}
 	now := s.Now().UTC()
 	connection.Status = "connected"
@@ -469,9 +495,18 @@ func (s *Service) decrypt(c *Connection) (Credentials, error) {
 	return Credentials{
 		SecretKey:     payload.SecretKey,
 		PublicKey:     payload.PublicKey,
+		APIKey:        payload.APIKey,
+		ContractCode:  payload.ContractCode,
 		WebhookSecret: webhookSecret,
 		Environment:   c.Environment,
 	}, nil
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 // encryptWebhookSecret encrypts an inbound webhook signing value and derives its

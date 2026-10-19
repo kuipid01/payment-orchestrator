@@ -28,13 +28,25 @@ func validateCredentialShape(provider constants.Provider, environment, secret st
 		if !strings.HasPrefix(secret, "FLWSECK") {
 			return apperrors.Validation("provider_credentials_invalid", "Flutterwave secret keys look like FLWSECK-…")
 		}
-	case constants.ProviderMoniepoint:
-		// Moniepoint issues opaque tokens; only length is checkable locally.
+	case constants.ProviderMonnify:
 		if strings.ContainsAny(secret, " \t\n") {
 			return apperrors.Validation("provider_credentials_invalid", "credentials.secret_key must not contain whitespace.")
 		}
 	default:
 		return apperrors.ProviderNotSupported(provider.String())
+	}
+	return nil
+}
+
+func validateProviderCredentialFields(provider constants.Provider, apiKey, contractCode string) error {
+	if provider != constants.ProviderMonnify {
+		return nil
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return apperrors.Validation("provider_credentials_invalid", "credentials.api_key is required for Monnify.")
+	}
+	if strings.TrimSpace(contractCode) == "" {
+		return apperrors.Validation("provider_credentials_invalid", "credentials.contract_code is required for Monnify.")
 	}
 	return nil
 }

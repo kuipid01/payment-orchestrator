@@ -16,7 +16,7 @@ import {
 export const metadata = {
   title: "Pricing",
   description:
-    "One integration for every provider you already have. Bring your own Paystack, Flutterwave or Moniepoint keys — PayConnect never holds your money or takes a cut of a payment.",
+    "One integration for every provider you already have. Bring your own Paystack, Flutterwave or Monnify keys — PayConnect never holds your money or takes a cut of a payment.",
 };
 
 /** The Lite ladder, computed from the catalog rather than typed out again. */
@@ -100,7 +100,7 @@ export default async function PricingPage() {
               <span className="text-brand-500"> and your keys never leave the vault.</span>
             </h1>
             <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-              PayConnect is not your PSP. You keep your Paystack, Flutterwave and Moniepoint accounts, your
+              PayConnect is not your PSP. You keep your Paystack, Flutterwave and Monnify accounts, your
               settlement and your rates — we make them one system: one API, one webhook format, one vault, one
               dashboard. That is why we can never take a cut of a payment, and why the prices below are the whole
               bill.

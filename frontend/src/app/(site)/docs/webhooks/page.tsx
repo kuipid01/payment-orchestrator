@@ -12,7 +12,7 @@ export default function WebhooksDocsPage() {
           id: "directions",
           title: "The two directions",
           body: [
-            "Inbound: Paystack, Flutterwave and Moniepoint send their events to PayConnect. Each provider connection gets its own URL, generated when you connect the provider, because the URL is what selects the credentials that verify the signature.",
+            "Inbound: Paystack, Flutterwave and Monnify send their events to PayConnect. Each provider connection gets its own URL, generated when you connect the provider, because the URL is what selects the credentials that verify the signature.",
             "Outbound: PayConnect sends normalized events to your endpoint. There is one destination per merchant and every application reuses it, so you register a URL once and all of your integrations receive the same events.",
           ],
           list: [
@@ -29,7 +29,7 @@ export default function WebhooksDocsPage() {
           list: [
             "Paystack — paste the URL only. Paystack signs with your secret key, so there is nothing else to configure.",
             "Flutterwave — paste the URL, then set a secret hash in your Flutterwave dashboard and save the same value on the connection.",
-            "Moniepoint — paste the URL only. Moniepoint signs with your secret key.",
+            "Monnify — paste the URL only. Production notifications are signed using a SHA-512 hash derived from your secret key and the request body; sandbox notifications do not include a signature.",
           ],
           note: "The inbound URL is public by design. Anyone can POST to it, but nothing is trusted until its signature is verified against your stored credentials, so a forged request is rejected.",
         },

@@ -98,7 +98,8 @@ func Build(cfg config.Config, db *database.DB, store redis.Store, logger *slog.L
 	registry := factory.NewRegistry(factory.Config{
 		PaystackBaseURL:    cfg.Providers.PaystackBaseURL,
 		FlutterwaveBaseURL: cfg.Providers.FlutterwaveBaseURL,
-		MoniepointBaseURL:  cfg.Providers.MoniepointBaseURL,
+		MonnifyTestBaseURL: cfg.Providers.MonnifyTestBaseURL,
+		MonnifyLiveBaseURL: cfg.Providers.MonnifyLiveBaseURL,
 		Timeout:            cfg.Providers.RequestTimeout,
 		MaxRetries:         cfg.Providers.MaxRetries,
 		UserAgent:          cfg.App.Name,

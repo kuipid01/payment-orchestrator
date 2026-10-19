@@ -7,7 +7,7 @@ import type { Environment, PaymentStatus } from "./utils";
 
 /* --------------------------------- providers -------------------------------- */
 
-export type ProviderKind = "paystack" | "flutterwave" | "moniepoint" | "stripe";
+export type ProviderKind = "paystack" | "flutterwave" | "monnify" | "moniepoint" | "stripe";
 
 export const PROVIDER_META: Record<
   ProviderKind,
@@ -24,6 +24,12 @@ export const PROVIDER_META: Record<
     description: "Pan-African payments across 30+ countries and currencies.",
     accent: "bg-amber-100 text-amber-700",
     initials: "FW",
+  },
+  monnify: {
+    name: "Monnify",
+    description: "Accept payments with Monnify's hosted checkout and bank transfer options.",
+    accent: "bg-emerald-100 text-emerald-700",
+    initials: "MN",
   },
   moniepoint: {
     name: "Moniepoint",

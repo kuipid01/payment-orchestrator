@@ -12,7 +12,7 @@ import {
   Rocket,
 } from "lucide-react";
 import { Button, Card, Input, Label } from "@/components/ui";
-import { MaskedSecret, SecurityNotice } from "@/components/ui/part2";
+import { MaskedSecret, SecretInput, SecurityNotice } from "@/components/ui/part2";
 import { Logo } from "@/components/ui/logo";
 import { toast } from "@/components/ui/toaster";
 import { generateApiKey } from "@/lib/utils";
@@ -29,15 +29,17 @@ export default function OnboardingPage() {
   const [useCase, setUseCase] = React.useState<string | null>(null);
   const [provider, setProvider] = React.useState<ProviderKind | null>(null);
   const [secretKey, setSecretKey] = React.useState("");
+  const [monnifyAPIKey, setMonnifyAPIKey] = React.useState("");
+  const [contractCode, setContractCode] = React.useState("");
   const [appName, setAppName] = React.useState("");
   const [connecting, setConnecting] = React.useState(false);
   const [apiKey, setApiKey] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
 
-  const providerOrder: ProviderKind[] = ["paystack", "flutterwave", "moniepoint"];
+  const providerOrder: ProviderKind[] = ["paystack", "flutterwave", "monnify"];
 
   async function connectProvider() {
-    if (!provider || !secretKey) {
+    if (!provider || !secretKey || (provider === "monnify" && (!monnifyAPIKey || !contractCode))) {
       toast("warning", "Almost there", "Choose a provider and paste its secret key.");
       return;
     }
@@ -47,8 +49,12 @@ export default function OnboardingPage() {
         provider,
         environment: "test",
         secretKey: secretKey.trim(),
+        apiKey: provider === "monnify" ? monnifyAPIKey.trim() : undefined,
+        contractCode: provider === "monnify" ? contractCode.trim() : undefined,
       });
       setSecretKey("");
+      setMonnifyAPIKey("");
+      setContractCode("");
       toast("success", `${PROVIDER_META[provider].name} connected`, "Test credentials verified and stored securely.");
       setStep(2);
     } catch (error) {
@@ -180,6 +186,19 @@ export default function OnboardingPage() {
                 })}
               </div>
 
+              {provider === "monnify" ? (
+                <>
+                  <div className="mt-6 space-y-1.5">
+                    <Label htmlFor="api-key">Monnify API key</Label>
+                    <SecretInput id="api-key" value={monnifyAPIKey} onChange={(e) => setMonnifyAPIKey(e.target.value)} placeholder="Monnify API key" />
+                  </div>
+                  <div className="mt-6 space-y-1.5">
+                    <Label htmlFor="contract-code">Monnify contract code</Label>
+                    <Input id="contract-code" value={contractCode} onChange={(e) => setContractCode(e.target.value)} placeholder="Contract code" />
+                  </div>
+                </>
+              ) : null}
+
               <div className="mt-6 space-y-1.5">
                 <Label htmlFor="secret">{provider ? `${PROVIDER_META[provider].name} secret key` : "Secret key"}</Label>
                 <Input
@@ -187,7 +206,7 @@ export default function OnboardingPage() {
                   type="password"
                   value={secretKey}
                   onChange={(e) => setSecretKey(e.target.value)}
-                  placeholder={provider === "paystack" ? "sk_test_…" : provider === "flutterwave" ? "FLWSECK-…" : "Moniepoint secret token"}
+                  placeholder={provider === "paystack" ? "sk_test_…" : provider === "flutterwave" ? "FLWSECK-…" : "Monnify secret key"}
                   className="font-mono"
                 />
               </div>

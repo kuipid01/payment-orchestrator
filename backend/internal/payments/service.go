@@ -717,7 +717,7 @@ func (s *Service) resolveProviders(in CreateInput, amount int64, currency string
 		requested = constants.ProviderAuto
 	}
 	if requested != constants.ProviderAuto && !constants.IsValidProvider(requested) {
-		return nil, apperrors.InvalidProvider("adapter must be one of paystack, flutterwave, moniepoint or auto.")
+		return nil, apperrors.InvalidProvider("adapter must be one of paystack, flutterwave, monnify or auto.")
 	}
 	if s.Routing != nil {
 		chain, err := s.Routing.Resolve(in.MerchantID, in.Environment, currency, amount, requested)

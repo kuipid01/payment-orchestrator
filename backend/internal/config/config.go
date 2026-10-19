@@ -83,7 +83,8 @@ type MailConfig struct {
 type ProviderConfig struct {
 	PaystackBaseURL    string
 	FlutterwaveBaseURL string
-	MoniepointBaseURL  string
+	MonnifyTestBaseURL string
+	MonnifyLiveBaseURL string
 	WebhookBaseURL     string
 	RequestTimeout     time.Duration
 	MaxRetries         int
@@ -162,7 +163,8 @@ func Load() Config {
 		Providers: ProviderConfig{
 			PaystackBaseURL:    envOr("PAYSTACK_BASE_URL", "https://api.paystack.co"),
 			FlutterwaveBaseURL: envOr("FLUTTERWAVE_BASE_URL", "https://api.flutterwave.com/v3"),
-			MoniepointBaseURL:  envOr("MONIEPOINT_BASE_URL", "https://api.moniepoint.com"),
+			MonnifyTestBaseURL: envOr("MONNIFY_TEST_BASE_URL", "https://sandbox.monnify.com"),
+			MonnifyLiveBaseURL: envOr("MONNIFY_LIVE_BASE_URL", "https://api.monnify.com"),
 			WebhookBaseURL:     envOr("WEBHOOK_BASE_URL", "http://localhost:8080"),
 			RequestTimeout:     envDuration("PROVIDER_TIMEOUT", 10*time.Second),
 			MaxRetries:         envInt("PROVIDER_MAX_RETRIES", 2),

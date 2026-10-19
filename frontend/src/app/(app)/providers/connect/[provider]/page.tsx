@@ -19,6 +19,7 @@ import {
   Button,
   Card,
   CopyField,
+  Input,
   Label,
   PageHeader,
   Radio,
@@ -43,7 +44,7 @@ import {
 const VALID: ProviderKind[] = [
   "paystack",
   "flutterwave",
-  "moniepoint",
+  "monnify",
 ];
 
 type Environment = "test" | "live";
@@ -181,6 +182,8 @@ export default function ConnectProviderPage() {
     );
 
   const [secretKey, setSecretKey] = React.useState("");
+  const [apiKey, setApiKey] = React.useState("");
+  const [contractCode, setContractCode] = React.useState("");
   const [webhookSecret, setWebhookSecret] = React.useState("");
   const [validating, setValidating] = React.useState(false);
   const [connected, setConnected] =
@@ -235,6 +238,10 @@ export default function ConnectProviderPage() {
       );
       return;
     }
+    if (providerKind === "monnify" && (!apiKey.trim() || !contractCode.trim())) {
+      toast("warning", "Monnify credentials required", "Enter your API key and contract code as well as the secret key.");
+      return;
+    }
 
     if (
       environment === "live" &&
@@ -252,12 +259,16 @@ export default function ConnectProviderPage() {
         provider: providerKind,
         environment,
         secretKey: secretKey.trim(),
+        apiKey: providerKind === "monnify" ? apiKey.trim() : undefined,
+        contractCode: providerKind === "monnify" ? contractCode.trim() : undefined,
         webhookSecret: capability?.webhookSecretRequired
           ? webhookSecret.trim()
           : undefined,
       });
 
       setSecretKey("");
+      setApiKey("");
+      setContractCode("");
       setWebhookSecret("");
 
       void queryClient.invalidateQueries({
@@ -583,10 +594,35 @@ export default function ConnectProviderPage() {
                   </h3>
 
                   <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    Enter the secret key from your {meta.name} dashboard.
-                    Your public key is not a replacement for this key.
+                    Enter the credentials from your {meta.name} dashboard.
+                    {providerKind !== "monnify" ? " Your public key is not a replacement for the secret key." : ""}
                   </p>
                 </div>
+
+                {providerKind === "monnify" && (
+                  <>
+                    <div className="mb-4 space-y-2">
+                      <Label htmlFor="api-key">Monnify API key</Label>
+                      <SecretInput
+                        id="api-key"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="Enter your Monnify API key"
+                        required
+                      />
+                    </div>
+                    <div className="mb-4 space-y-2">
+                      <Label htmlFor="contract-code">Monnify contract code</Label>
+                      <Input
+                        id="contract-code"
+                        value={contractCode}
+                        onChange={(e) => setContractCode(e.target.value)}
+                        placeholder="Enter your contract code"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="secret">
@@ -602,7 +638,9 @@ export default function ConnectProviderPage() {
                         ? `sk_${environment}_••••••••••••`
                         : providerKind === "flutterwave"
                           ? "FLWSECK-••••••••••••"
-                          : "Enter your Moniepoint secret token"
+                          : providerKind === "monnify"
+                            ? "Enter your Monnify secret key"
+                            : "Enter your secret key"
                     }
                     required
                   />
@@ -734,7 +772,7 @@ export default function ConnectProviderPage() {
                       ? "https://dashboard.paystack.com/"
                       : providerKind === "flutterwave"
                         ? "https://app.flutterwave.com/"
-                        : "https://moniepoint.com/"
+                        : "https://developers.monnify.com/"
                   }
                   target="_blank"
                   rel="noreferrer"

@@ -38,7 +38,7 @@ This is exactly the intuition in the request, just split into the two halves.
 - Per-provider signature verification lives in each adapter:
   [`paystack/webhook.go`](backend/internal/providers/paystack/webhook.go),
   [`flutterwave/webhook.go`](backend/internal/providers/flutterwave/webhook.go),
-  [`moniepoint/webhook.go`](backend/internal/providers/moniepoint/webhook.go)
+  [`monnify/webhook.go`](backend/internal/providers/monnify/webhook.go)
 - Duplicate / unknown-reference events already return `200` (no retry storm). Good.
 
 **Outbound — implemented and correct in shape**
@@ -70,7 +70,7 @@ Signature verification uses the connection's **webhook secret** when present, el
 | --- | --- | --- | --- | --- |
 | Paystack | `X-Paystack-Signature` | HMAC-SHA512(secret key) | **No** | Paste inbound URL only |
 | Flutterwave | `verif-hash` | merchant-defined hash | **Yes** | Set the same hash in Flutterwave dashboard |
-| Moniepoint | `x-moniepoint-signature` | HMAC-SHA256(secret key) | **No** | Paste inbound URL only |
+| Monnify | `monnify-signature` | SHA-512(secret key + raw body); unsigned in sandbox | **No** | Paste inbound URL only |
 
 Add a constant descriptor so the UI never hard-codes provider special cases:
 
@@ -196,8 +196,8 @@ step:
 └───────────────────────────────────────────────────────┘
 ```
 
-For Flutterwave/Moniepoint the same step adds one field ("Secret hash — from your
-Flutterwave dashboard"), because their signature key is separate.
+For Flutterwave the same step adds one field ("Secret hash — from your
+Flutterwave dashboard"), because its signature key is separate.
 
 ### Screen 2 — Provider detail page (existing page, add a card)
 New **"Provider webhooks (inbound)"** card: the URL with copy button, signature header

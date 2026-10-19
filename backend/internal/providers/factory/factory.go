@@ -10,7 +10,7 @@ import (
 
 	"github.com/kuipid01/payconnect/internal/providers"
 	"github.com/kuipid01/payconnect/internal/providers/flutterwave"
-	"github.com/kuipid01/payconnect/internal/providers/moniepoint"
+	"github.com/kuipid01/payconnect/internal/providers/monnify"
 	"github.com/kuipid01/payconnect/internal/providers/paystack"
 )
 
@@ -18,7 +18,8 @@ import (
 type Config struct {
 	PaystackBaseURL    string
 	FlutterwaveBaseURL string
-	MoniepointBaseURL  string
+	MonnifyTestBaseURL string
+	MonnifyLiveBaseURL string
 	Timeout            time.Duration
 	MaxRetries         int
 	UserAgent          string
@@ -46,11 +47,12 @@ func NewRegistry(cfg Config) providers.Registry {
 			MaxRetries: cfg.MaxRetries,
 			UserAgent:  cfg.UserAgent,
 		}),
-		moniepoint.New(moniepoint.Config{
-			BaseURL:    cfg.MoniepointBaseURL,
-			Client:     client,
-			MaxRetries: cfg.MaxRetries,
-			UserAgent:  cfg.UserAgent,
+		monnify.New(monnify.Config{
+			TestBaseURL: cfg.MonnifyTestBaseURL,
+			LiveBaseURL: cfg.MonnifyLiveBaseURL,
+			Client:      client,
+			MaxRetries:  cfg.MaxRetries,
+			UserAgent:   cfg.UserAgent,
 		}),
 	)
 }

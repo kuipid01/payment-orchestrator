@@ -6,7 +6,7 @@ type Provider string
 const (
 	ProviderPaystack    Provider = "paystack"
 	ProviderFlutterwave Provider = "flutterwave"
-	ProviderMoniepoint  Provider = "moniepoint"
+	ProviderMonnify     Provider = "monnify"
 
 	// ProviderAuto asks the routing service to pick a provider.
 	ProviderAuto Provider = "auto"
@@ -14,7 +14,7 @@ const (
 
 // AllProviders lists every provider With a registry entry.
 func AllProviders() []Provider {
-	return []Provider{ProviderPaystack, ProviderFlutterwave, ProviderMoniepoint}
+	return []Provider{ProviderPaystack, ProviderFlutterwave, ProviderMonnify}
 }
 
 // IsValidProvider reports whether p is a concrete, supported provider.
@@ -66,11 +66,10 @@ func WebhookSupportFor(p Provider) WebhookSupport {
 			SecretLabel:           "Secret hash",
 			DashboardPath:         "Settings → Webhooks",
 		}
-	case ProviderMoniepoint:
-		// Moniepoint signs with the secret key (HMAC-SHA256).
+	case ProviderMonnify:
 		return WebhookSupport{
-			SignatureHeader: "x-moniepoint-signature",
-			DashboardPath:   "Developer → Webhooks",
+			SignatureHeader: "monnify-signature",
+			DashboardPath:   "Settings → API Keys & Webhooks",
 		}
 	default:
 		return WebhookSupport{}

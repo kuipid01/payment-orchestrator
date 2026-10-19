@@ -645,7 +645,7 @@ export default function WebhooksPage() {
                 Provider notifications are configured separately
               </h2>
               <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">
-                Paystack, Flutterwave and Moniepoint each have their own inbound
+                Paystack, Flutterwave and Monnify each have their own inbound
                 URL. Configure those URLs in the provider dashboard.
               </p>
             </div>

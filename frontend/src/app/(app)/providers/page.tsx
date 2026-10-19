@@ -46,6 +46,7 @@ const PROVIDER_LOGOS: Partial<
 > = {
   paystack: "/providers/paystack.png",
   flutterwave: "/providers/flutterwave.png",
+  monnify: "https://developers.monnify.com/png/monnify-logo.png",
   moniepoint: "/providers/moniepoint.png",
 };
 
@@ -556,6 +557,7 @@ export default function ProvidersPage() {
                           alt={`${meta.name} logo`}
                           width={48}
                           height={48}
+                          unoptimized={kind === "monnify"}
                           className="size-full object-contain"
                         />
                       ) : (

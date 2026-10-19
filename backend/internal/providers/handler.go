@@ -80,8 +80,10 @@ func (h *Handler) CreateConnection(c *fiber.Ctx) error {
 		WebhookSecret string `json:"webhook_secret"`
 		IsDefault     bool   `json:"is_default"`
 		Credentials   struct {
-			SecretKey string `json:"secret_key"`
-			PublicKey string `json:"public_key"`
+			SecretKey    string `json:"secret_key"`
+			PublicKey    string `json:"public_key"`
+			APIKey       string `json:"api_key"`
+			ContractCode string `json:"contract_code"`
 		} `json:"credentials"`
 	}
 	if err := apihttp.Body(c, &req); err != nil {
@@ -96,6 +98,8 @@ func (h *Handler) CreateConnection(c *fiber.Ctx) error {
 		DisplayName:   req.DisplayName,
 		SecretKey:     req.Credentials.SecretKey,
 		PublicKey:     req.Credentials.PublicKey,
+		APIKey:        req.Credentials.APIKey,
+		ContractCode:  req.Credentials.ContractCode,
 		WebhookSecret: req.WebhookSecret,
 		IsDefault:     req.IsDefault,
 	})
@@ -112,8 +116,10 @@ func (h *Handler) UpdateConnection(c *fiber.Ctx) error {
 		DisplayName *string `json:"display_name"`
 		IsDefault   *bool   `json:"is_default"`
 		Credentials *struct {
-			SecretKey string `json:"secret_key"`
-			PublicKey string `json:"public_key"`
+			SecretKey    string `json:"secret_key"`
+			PublicKey    string `json:"public_key"`
+			APIKey       string `json:"api_key"`
+			ContractCode string `json:"contract_code"`
 		} `json:"credentials"`
 	}
 	if err := apihttp.Body(c, &req); err != nil {
@@ -123,6 +129,8 @@ func (h *Handler) UpdateConnection(c *fiber.Ctx) error {
 	if req.Credentials != nil {
 		in.SecretKey = &req.Credentials.SecretKey
 		in.PublicKey = &req.Credentials.PublicKey
+		in.APIKey = &req.Credentials.APIKey
+		in.ContractCode = &req.Credentials.ContractCode
 	}
 	connection, err := h.svc.Update(principal.MerchantID, actorName(principal), actorRole(principal), c.Params("id"), in)
 	if err != nil {

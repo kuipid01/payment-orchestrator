@@ -1,5 +1,5 @@
 // Package providers owns the provider-credential domain and the adapter layer
-// that talks to Paystack, Flutterwave and Moniepoint.
+// that talks to Paystack, Flutterwave and Monnify.
 //
 // Provider-specific payloads never leave this package's adapter subpackages:
 // everything crossing the boundary is a PayConnect domain object.
@@ -12,8 +12,10 @@ import (
 // Credentials are the decrypted provider secrets needed to call a provider.
 // They exist only in memory for the duration of one request.
 type Credentials struct {
-	SecretKey string
-	PublicKey string
+	SecretKey    string
+	PublicKey    string
+	APIKey       string
+	ContractCode string
 	// WebhookSecret is the provider-specific inbound webhook signing value when
 	// it differs from the API secret key (Flutterwave's "verif-hash"). Empty for
 	// providers that sign with SecretKey itself.
@@ -109,6 +111,7 @@ type WebhookVerificationRequest struct {
 	// precedence over SecretKey (Flutterwave's "verif-hash").
 	WebhookSecret string
 	Signature     string
+	Environment   string
 }
 
 // WebhookResult is a normalized inbound provider event.

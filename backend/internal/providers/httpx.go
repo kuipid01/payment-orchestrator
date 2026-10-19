@@ -126,20 +126,37 @@ func DoJSON(ctx context.Context, opts HTTPOptions) (*HTTPResult, error) {
 func MapStatus(provider string, status int, body map[string]any) error {
 	switch {
 	case status == http.StatusUnauthorized || status == http.StatusForbidden:
-		return apperrors.ProviderAuthenticationFailed(provider, errors.New(providerMessage(body)))
+		message := providerMessage(body)
+		return apperrors.ProviderAuthenticationFailed(provider, errors.New(message)).WithDetails(map[string]any{
+			"provider_status":  status,
+			"provider_message": boundedProviderMessage(message),
+		})
 	case status == http.StatusNotFound:
 		return apperrors.NotFound("provider_resource_not_found", providerMessageOrDefault(body, "The provider does not know this reference."))
 	case status == http.StatusTooManyRequests:
 		return apperrors.ProviderUnavailable(provider, errors.New("provider rate limit"))
 	case status >= 400:
 		message := providerMessage(body)
-		return apperrors.ProviderRequestFailed(provider, errors.New(message)).WithDetails(map[string]any{
+		details := map[string]any{
 			"provider_status":  status,
 			"provider_message": boundedProviderMessage(message),
-		})
+		}
+		cause := errors.New(message)
+		if isProviderAvailabilityFailure(message) {
+			return apperrors.ProviderUnavailable(provider, cause).WithDetails(details)
+		}
+		return apperrors.ProviderRequestFailed(provider, cause).WithDetails(details)
 	default:
 		return nil
 	}
+}
+
+func isProviderAvailabilityFailure(message string) bool {
+	message = strings.ToLower(message)
+	return strings.Contains(message, "network socket disconnected") ||
+		strings.Contains(message, "before secure tls connection was established") ||
+		(strings.Contains(message, "cannot read properties of undefined") &&
+			strings.Contains(message, "reading 'filter'"))
 }
 
 func boundedProviderMessage(message string) string {
@@ -159,6 +176,9 @@ func providerMessage(body map[string]any) string {
 		return "provider rejected the request"
 	}
 	if msg, ok := body["message"].(string); ok && msg != "" {
+		return msg
+	}
+	if msg, ok := body["responseMessage"].(string); ok && msg != "" {
 		return msg
 	}
 	if msg, ok := body["error"].(string); ok && msg != "" {

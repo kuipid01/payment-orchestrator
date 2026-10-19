@@ -149,6 +149,7 @@ func (s *Service) HandleInbound(ctx context.Context, requestID string, provider 
 		Body:          body,
 		SecretKey:     credentials.SecretKey,
 		WebhookSecret: credentials.WebhookSecret,
+		Environment:   credentials.Environment,
 	})
 	if err != nil {
 		s.warn("webhook rejected: signature verification failed",
