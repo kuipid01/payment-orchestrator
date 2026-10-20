@@ -49,7 +49,11 @@ function describe(view: SubscriptionPlan): { title: string; detail: string; cta:
   }
 }
 
-export function PlanBadge({ className }: { className?: string }) {
+export function PlanBadge({ className, 
+  setSideBarOpen,
+  sideBarOpen }: { className?: string  , 
+  setSideBarOpen?: React.Dispatch<React.SetStateAction<boolean>>
+  sideBarOpen?:boolean}) {
   const { data, loading, error } = useAsync(getBillingPlan, [], ["billing", "plan"]);
 
   if (loading) {

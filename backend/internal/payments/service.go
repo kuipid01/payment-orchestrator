@@ -443,7 +443,15 @@ func (s *Service) Verify(ctx context.Context, merchantID, paymentID string) (*Re
 	if err != nil {
 		return nil, err
 	}
-	result, err := adapter.VerifyPayment(ctx, credentials, payment.Reference)
+	// A hosted-checkout provider (Stripe, PayPal) identifies the charge by its
+	// own id, not by the merchant reference. Prefer that id when it is known;
+	// for providers whose reference *is* the provider reference (Paystack,
+	// Flutterwave, Monnify) the two are the same.
+	reference := payment.Reference
+	if payment.ProviderPaymentID != nil && strings.TrimSpace(*payment.ProviderPaymentID) != "" {
+		reference = strings.TrimSpace(*payment.ProviderPaymentID)
+	}
+	result, err := adapter.VerifyPayment(ctx, credentials, reference)
 	if err != nil {
 		s.log("payment verification failed", "payment_id", payment.ID, "provider", payment.Provider,
 			"reference", payment.Reference, "reason", err.Error())
@@ -717,7 +725,7 @@ func (s *Service) resolveProviders(in CreateInput, amount int64, currency string
 		requested = constants.ProviderAuto
 	}
 	if requested != constants.ProviderAuto && !constants.IsValidProvider(requested) {
-		return nil, apperrors.InvalidProvider("adapter must be one of paystack, flutterwave, monnify or auto.")
+		return nil, apperrors.InvalidProvider("adapter must be one of " + providerList(constants.AllProviders()) + " or auto.")
 	}
 	if s.Routing != nil {
 		chain, err := s.Routing.Resolve(in.MerchantID, in.Environment, currency, amount, requested)
@@ -997,6 +1005,16 @@ func (s *Service) log(message string, attrs ...any) {
 		return
 	}
 	s.Logger.Info(message, attrs...)
+}
+
+// providerList renders the supported provider names for a validation message,
+// so adding an adapter never leaves the message stale.
+func providerList(values []constants.Provider) string {
+	names := make([]string, 0, len(values))
+	for _, value := range values {
+		names = append(names, value.String())
+	}
+	return strings.Join(names, ", ")
 }
 
 // providerNames renders a routing chain for a log line.

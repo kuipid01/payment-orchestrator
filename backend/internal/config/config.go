@@ -81,13 +81,18 @@ type MailConfig struct {
 
 // ProviderConfig holds provider base URLs (overridable for tests/sandboxes).
 type ProviderConfig struct {
-	PaystackBaseURL    string
-	FlutterwaveBaseURL string
-	MonnifyTestBaseURL string
-	MonnifyLiveBaseURL string
-	WebhookBaseURL     string
-	RequestTimeout     time.Duration
-	MaxRetries         int
+	PaystackBaseURL       string
+	FlutterwaveBaseURL    string
+	MonnifyTestBaseURL    string
+	MonnifyLiveBaseURL    string
+	StripeBaseURL         string
+	PayPalTestBaseURL     string
+	PayPalLiveBaseURL     string
+	WebhookBaseURL        string
+	RequestTimeout        time.Duration
+	MaxRetries            int
+	StripeManagedPayments bool
+	StripeDefaultTaxCode  string
 }
 
 // LimitConfig holds rate limit budgets per endpoint category, plus the
@@ -165,6 +170,9 @@ func Load() Config {
 			FlutterwaveBaseURL: envOr("FLUTTERWAVE_BASE_URL", "https://api.flutterwave.com/v3"),
 			MonnifyTestBaseURL: envOr("MONNIFY_TEST_BASE_URL", "https://sandbox.monnify.com"),
 			MonnifyLiveBaseURL: envOr("MONNIFY_LIVE_BASE_URL", "https://api.monnify.com"),
+			StripeBaseURL:      envOr("STRIPE_BASE_URL", "https://api.stripe.com"),
+			PayPalTestBaseURL:  envOr("PAYPAL_TEST_BASE_URL", "https://api-m.sandbox.paypal.com"),
+			PayPalLiveBaseURL:  envOr("PAYPAL_LIVE_BASE_URL", "https://api-m.paypal.com"),
 			WebhookBaseURL:     envOr("WEBHOOK_BASE_URL", "http://localhost:8080"),
 			RequestTimeout:     envDuration("PROVIDER_TIMEOUT", 10*time.Second),
 			MaxRetries:         envInt("PROVIDER_MAX_RETRIES", 2),

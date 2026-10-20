@@ -22,10 +22,13 @@ Conventions:
 | `listPayments` | `GET /payments` | Bearer | filters: status, provider, currency, created_after/before |
 | `getPayment` | `GET /payments/:id` | Bearer | includes timeline + redacted provider response |
 | `createTestTransaction` | `POST /payments/test` ⛨ | session | body: `{ connection_id, amount, currency, email, reference? }`; starts a sandbox charge on a **test** connection and returns the provider's checkout URL. Live connections are refused. |
-| `listProviders` | `GET /providers` ⛨ | session | masked secrets only (`secret_last4`) |
-| `getProvider` | `GET /providers/:id` ⛨ | session | masked secrets only |
-| connect provider | `POST /providers/:kind/connect` ⛨ | session | body: `{ environment, secretKey }` → validate, encrypt, store |
-| rotate credentials | `POST /providers/:id/rotate` ⛨ | session | same validation + audit log entry |
+| `listProviders` | `GET /providers` | Bearer | the catalogue plus `connected`; masked secrets only (`secret_last4`) |
+| `getProvider` | `GET /providers/connections/:id` ⛨ | session | masked secrets only; includes `webhook_url` and the provider's webhook requirements |
+| list connections | `GET /providers/connections` ⛨ | session | all of the merchant's connections |
+| connect provider | `POST /providers/connections` ⛨ | session | body: `{ provider, environment, display_name?, is_default?, webhook_secret?, credentials{…} }` → validate against the provider, encrypt, store |
+| rotate credentials | `PATCH /providers/connections/:id` ⛨ | session | `credentials` replaces the secret; fields omitted are kept from the stored credential set |
+| test connection | `POST /providers/connections/:id/test` ⛨ | session | re-validates the stored credentials against the provider |
+| disconnect | `DELETE /providers/connections/:id` ⛨ | session | destroys the stored credentials |
 | set provider webhook secret | `POST /providers/connections/:id/webhook-secret` ⛨ | session | body: `{ webhook_secret }`; only for providers whose signing key is not the API secret key |
 | `listApplications` | `GET /applications` | Bearer | includes lifetime stats |
 | `getApplication` | `GET /applications/:id` | Bearer | |
@@ -85,6 +88,33 @@ Conventions:
    not hard-code provider differences.
 2. Developer API keys are shown in full **only** in the create/rotate response.
 3. Every ⛨ mutation writes an audit log entry (actor, action, target, env).
+
+## Provider credential shapes
+
+`credentials` is the same object on connect and rotate. Every field is a string;
+only the fields a provider needs are required.
+
+| Provider | `credentials.secret_key` | `credentials.public_key` | `credentials.api_key` | `credentials.contract_code` | Inbound `webhook_secret` |
+| --- | --- | --- | --- | --- | --- |
+| Paystack | `sk_test_…` / `sk_live_…` | — | — | — | not needed (signs with the secret key) |
+| Flutterwave | `FLWSECK-…` | — | — | — | **required**: the dashboard “secret hash” |
+| Monnify | API secret | — | **required** | **required** | not needed (signs with the secret key) |
+| Stripe | `sk_test_…` / `sk_live_…` (or `rk_…` restricted key) | — | — | — | **required**: endpoint signing secret, `whsec_…` |
+| PayPal | REST app **client secret** | REST app **client ID** | — | — | **required**: the registered **webhook ID** |
+
+Environment gating is enforced at connect: Stripe accepts `sk_test_`/`rk_test_`
+for a `test` connection and `sk_live_`/`rk_live_` for `live`. PayPal has no key
+prefix, so the connection environment selects the host — sandbox in `test`, live
+in `live` — and a credential set only validates against the host it belongs to.
+
+Stripe and PayPal are hosted-checkout providers. `POST /v1/payments` returns the
+provider's `authorization_url`; the customer pays there. Stripe confirms through
+its signed webhook. PayPal orders are captured by PayConnect (on the approval
+webhook or the customer-return verify path) because PayPal authorizes and
+captures separately. Both webhook receivers are the generic
+`POST /v1/webhooks/{provider}/{connection_id}`; nothing a webhook says is
+trusted before its signature is verified, and reconciliation reads the provider
+again before a payment is marked settled.
 
 ## Delivery success metric
 

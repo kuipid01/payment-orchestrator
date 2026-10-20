@@ -34,13 +34,14 @@ func (h *Handler) Supported(c *fiber.Ctx) error {
 	out := make([]fiber.Map, 0)
 	for _, descriptor := range Descriptors() {
 		out = append(out, fiber.Map{
-			"provider":                 descriptor.Provider,
-			"default_currency":         descriptor.Default,
-			"connected":                connectedSet[descriptor.Provider],
-			"webhook_secret_required":  descriptor.WebhookSecretRequired,
-			"webhook_secret_label":     descriptor.WebhookSecretLabel,
-			"webhook_signature_header": descriptor.WebhookSignatureHeader,
-			"webhook_dashboard_path":   descriptor.WebhookDashboardPath,
+			"provider":                     descriptor.Provider,
+			"default_currency":             descriptor.Default,
+			"connected":                    connectedSet[descriptor.Provider],
+			"webhook_secret_required":      descriptor.WebhookSecretRequired,
+			"webhook_secret_label":         descriptor.WebhookSecretLabel,
+			"webhook_secret_self_assigned": descriptor.WebhookSecretSelfAssigned,
+			"webhook_signature_header":     descriptor.WebhookSignatureHeader,
+			"webhook_dashboard_path":       descriptor.WebhookDashboardPath,
 		})
 	}
 	return h.responder.Success(c, out)
@@ -115,11 +116,14 @@ func (h *Handler) UpdateConnection(c *fiber.Ctx) error {
 	var req struct {
 		DisplayName *string `json:"display_name"`
 		IsDefault   *bool   `json:"is_default"`
+		// Each credential field is a pointer so an omitted one keeps its stored
+		// value. A rotate sends only the new secret; if this were a plain string
+		// the missing public_key would arrive as "" and wipe PayPal's client id.
 		Credentials *struct {
-			SecretKey    string `json:"secret_key"`
-			PublicKey    string `json:"public_key"`
-			APIKey       string `json:"api_key"`
-			ContractCode string `json:"contract_code"`
+			SecretKey    *string `json:"secret_key"`
+			PublicKey    *string `json:"public_key"`
+			APIKey       *string `json:"api_key"`
+			ContractCode *string `json:"contract_code"`
 		} `json:"credentials"`
 	}
 	if err := apihttp.Body(c, &req); err != nil {
@@ -127,10 +131,10 @@ func (h *Handler) UpdateConnection(c *fiber.Ctx) error {
 	}
 	in := UpdateInput{DisplayName: req.DisplayName, IsDefault: req.IsDefault}
 	if req.Credentials != nil {
-		in.SecretKey = &req.Credentials.SecretKey
-		in.PublicKey = &req.Credentials.PublicKey
-		in.APIKey = &req.Credentials.APIKey
-		in.ContractCode = &req.Credentials.ContractCode
+		in.SecretKey = req.Credentials.SecretKey
+		in.PublicKey = req.Credentials.PublicKey
+		in.APIKey = req.Credentials.APIKey
+		in.ContractCode = req.Credentials.ContractCode
 	}
 	connection, err := h.svc.Update(principal.MerchantID, actorName(principal), actorRole(principal), c.Params("id"), in)
 	if err != nil {

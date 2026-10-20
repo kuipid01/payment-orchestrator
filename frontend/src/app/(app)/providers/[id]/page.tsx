@@ -9,7 +9,6 @@ import { Badge, Button, Card, CopyField, EnvironmentBadge, Input, Label, PageHea
 import { Modal, SecretInput, SecurityNotice } from "@/components/ui/part2";
 import { useAsync } from "@/hooks/use-async";
 import {
-  createProviderConnection,
   createTestTransaction,
   deleteProviderConnection,
   getProvider,
@@ -106,8 +105,8 @@ function InboundWebhooksCard({ connection }: { connection: ProviderConnection })
               ) : null}
             </div>
             <p className="mt-2 max-w-prose text-[12px] leading-relaxed text-slate-500">
-              {meta.name} signs webhooks with a value you set in its own dashboard. Enter the same value here so inbound
-              webhooks verify.
+              Paste the {current.webhookSecretLabel || "webhook signing value"} {meta.name} shows for the endpoint above
+              so inbound webhooks verify.
             </p>
             <div className="mt-3 flex items-center gap-2">
               <div className="flex-1">
@@ -175,6 +174,7 @@ export default function ProviderDetailPage() {
   const [disconnectOpen, setDisconnectOpen] = React.useState(false);
   const [rotateOpen, setRotateOpen] = React.useState(false);
   const [newSecretKey, setNewSecretKey] = React.useState("");
+  const [newPublicKey, setNewPublicKey] = React.useState("");
   const [newAPIKey, setNewAPIKey] = React.useState("");
   const [newContractCode, setNewContractCode] = React.useState("");
   const [busy, setBusy] = React.useState<"test" | "default" | "delete" | "rotate" | null>(null);
@@ -296,16 +296,16 @@ export default function ProviderDetailPage() {
     if (!newSecretKey.trim()) return;
     setBusy("rotate");
     try {
-      await createProviderConnection({
-        provider: connection.provider,
-        environment: connection.environment,
+      // PATCH only sends what changed, so the stored client ID (and Monnify's
+      // API key) survive a secret rotate unless they are explicitly replaced.
+      await updateProviderConnection(connection.id, {
         secretKey: newSecretKey.trim(),
+        publicKey: connection.provider === "paypal" ? newPublicKey.trim() || undefined : undefined,
         apiKey: connection.provider === "monnify" ? newAPIKey.trim() : undefined,
         contractCode: connection.provider === "monnify" ? newContractCode.trim() : undefined,
-        displayName: connection.displayName,
-        isDefault: connection.isDefault,
       });
       setNewSecretKey("");
+      setNewPublicKey("");
       setNewAPIKey("");
       setNewContractCode("");
       setRotateOpen(false);
@@ -387,7 +387,9 @@ export default function ProviderDetailPage() {
             <div className="p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[12px] text-slate-500">Secret key</p>
+                  <p className="text-[12px] text-slate-500">
+                    {connection.provider === "paypal" ? "Client secret" : "Secret key"}
+                  </p>
                   <p className="font-mono text-[13px] text-slate-700">••••••••••••••••••••{provider.secretLast4}</p>
                 </div>
                 <Button variant="secondary" size="sm" onClick={() => setRotateOpen(true)} disabled={busy !== null}>
@@ -466,6 +468,7 @@ export default function ProviderDetailPage() {
           if (busy !== "rotate") {
             setRotateOpen(false);
             setNewSecretKey("");
+            setNewPublicKey("");
             setNewAPIKey("");
             setNewContractCode("");
           }
@@ -492,6 +495,16 @@ export default function ProviderDetailPage() {
           <p className="mb-3 text-[13px] leading-relaxed text-slate-600">
             We verify the new key with {meta.name} before it replaces the current one.
           </p>
+          {connection.provider === "paypal" ? (
+            <Input
+              value={newPublicKey}
+              onChange={(event) => setNewPublicKey(event.target.value)}
+              aria-label="PayPal client ID"
+              placeholder="New client ID (leave blank to keep the current one)"
+              autoComplete="off"
+              className="mb-3"
+            />
+          ) : null}
           {connection.provider === "monnify" ? (
             <>
               <SecretInput

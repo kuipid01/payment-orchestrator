@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +20,10 @@ type HTTPOptions struct {
 	URL     string
 	Headers map[string]string
 	Body    any
+	// Form, when set, replaces Body and sends an
+	// application/x-www-form-urlencoded request. Stripe and PayPal both speak
+	// form encoding for their write endpoints.
+	Form url.Values
 	// RetrySafe marks the call as idempotent (reads). Unsafe calls (payment or
 	// refund creation) are never retried: an ambiguous write must be reconciled
 	// with the provider, not repeated blindly.
@@ -52,7 +57,12 @@ func DoJSON(ctx context.Context, opts HTTPOptions) (*HTTPResult, error) {
 	}
 
 	var payload []byte
-	if opts.Body != nil {
+	contentType := "application/json"
+	switch {
+	case opts.Form != nil:
+		payload = []byte(opts.Form.Encode())
+		contentType = "application/x-www-form-urlencoded"
+	case opts.Body != nil:
 		encoded, err := json.Marshal(opts.Body)
 		if err != nil {
 			return nil, apperrors.ProviderRequestFailed(opts.Provider, err)
@@ -78,7 +88,7 @@ func DoJSON(ctx context.Context, opts HTTPOptions) (*HTTPResult, error) {
 		if err != nil {
 			return nil, apperrors.ProviderRequestFailed(opts.Provider, err)
 		}
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
 		if opts.UserAgent != "" {
 			req.Header.Set("User-Agent", opts.UserAgent)

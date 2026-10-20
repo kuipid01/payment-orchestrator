@@ -532,7 +532,6 @@ export default function ProvidersPage() {
               const kind =
                 provider as ProviderConnection["provider"];
               const meta = PROVIDER_META[kind];
-
               const byEnvironment = new Map(
                 items.map((item) => [item.environment, item]),
               );
@@ -561,7 +560,7 @@ export default function ProvidersPage() {
                           className="size-full object-contain"
                         />
                       ) : (
-                        <span className={`flex size-full items-center justify-center rounded-lg text-xs font-bold ${meta.accent}`}>
+                        <span className={`flex size-full items-center justify-center rounded-lg text-xs font-bold ${meta?.accent}`}>
                           {meta.initials}
                         </span>
                       )}

@@ -556,6 +556,13 @@ export interface ProviderWebhookCapability {
   defaultCurrency: string;
   webhookSecretRequired: boolean;
   webhookSecretLabel: string;
+  /**
+   * True when the merchant chooses the signing value (Flutterwave's verif-hash).
+   * False when the provider issues it for a registered endpoint (Stripe's
+   * whsec_…, PayPal's webhook id), which only exists after PayConnect has
+   * generated the endpoint URL — so it is entered on the connection page.
+   */
+  webhookSecretSelfAssigned: boolean;
   webhookSignatureHeader: string;
   webhookDashboardPath: string;
 }
@@ -568,6 +575,7 @@ export function listProviderCapabilities(): Promise<ProviderWebhookCapability[]>
       default_currency: string;
       webhook_secret_required?: boolean;
       webhook_secret_label?: string;
+      webhook_secret_self_assigned?: boolean;
       webhook_signature_header?: string;
       webhook_dashboard_path?: string;
     }[]
@@ -577,6 +585,7 @@ export function listProviderCapabilities(): Promise<ProviderWebhookCapability[]>
       defaultCurrency: row.default_currency,
       webhookSecretRequired: row.webhook_secret_required ?? false,
       webhookSecretLabel: row.webhook_secret_label ?? "",
+      webhookSecretSelfAssigned: row.webhook_secret_self_assigned ?? false,
       webhookSignatureHeader: row.webhook_signature_header ?? "",
       webhookDashboardPath: row.webhook_dashboard_path ?? "",
     })),
@@ -638,6 +647,11 @@ export function createProviderConnection(input: {
   provider: ProviderConnection["provider"];
   environment: ProviderConnection["environment"];
   secretKey: string;
+  /**
+   * The provider's public identifier where it needs one to authenticate:
+   * PayPal's REST app client ID. Always safe to transmit, never returned.
+   */
+  publicKey?: string;
   apiKey?: string;
   contractCode?: string;
   displayName?: string;
@@ -655,6 +669,7 @@ export function createProviderConnection(input: {
       webhook_secret: input.webhookSecret ?? "",
       credentials: {
         secret_key: input.secretKey,
+        ...(input.publicKey === undefined ? {} : { public_key: input.publicKey }),
         ...(input.apiKey === undefined ? {} : { api_key: input.apiKey }),
         ...(input.contractCode === undefined ? {} : { contract_code: input.contractCode }),
       },
@@ -675,22 +690,38 @@ export function setProviderWebhookSecret(id: string, webhookSecret: string): Pro
 
 export function updateProviderConnection(
   id: string,
-  input: { displayName?: string; isDefault?: boolean; secretKey?: string; apiKey?: string; contractCode?: string },
+  input: {
+    displayName?: string;
+    isDefault?: boolean;
+    secretKey?: string;
+    /** PayPal client ID; omitted keeps the stored one. */
+    publicKey?: string;
+    apiKey?: string;
+    contractCode?: string;
+  },
 ): Promise<ProviderConnection> {
+  const hasCredentials =
+    input.secretKey !== undefined ||
+    input.publicKey !== undefined ||
+    input.apiKey !== undefined ||
+    input.contractCode !== undefined;
   return request<ProviderConnectionResponse>(`/providers/connections/${encodeURIComponent(id)}`, {
     method: "PATCH",
     data: {
       ...(input.displayName === undefined ? {} : { display_name: input.displayName }),
       ...(input.isDefault === undefined ? {} : { is_default: input.isDefault }),
-      ...(input.secretKey === undefined && input.apiKey === undefined && input.contractCode === undefined
-        ? {}
-        : {
+      // Every omitted credential is left out of the body entirely: the API keeps
+      // the stored value for it, so a rotate never drops PayPal's client ID.
+      ...(hasCredentials
+        ? {
             credentials: {
               ...(input.secretKey === undefined ? {} : { secret_key: input.secretKey }),
+              ...(input.publicKey === undefined ? {} : { public_key: input.publicKey }),
               ...(input.apiKey === undefined ? {} : { api_key: input.apiKey }),
               ...(input.contractCode === undefined ? {} : { contract_code: input.contractCode }),
             },
-          }),
+          }
+        : {}),
     },
   }).then(toProviderConnection);
 }

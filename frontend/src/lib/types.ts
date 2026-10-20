@@ -7,7 +7,7 @@ import type { Environment, PaymentStatus } from "./utils";
 
 /* --------------------------------- providers -------------------------------- */
 
-export type ProviderKind = "paystack" | "flutterwave" | "monnify" | "moniepoint" | "stripe";
+export type ProviderKind = "paystack" | "flutterwave" | "monnify" | "moniepoint" | "stripe" | "paypal";
 
 export const PROVIDER_META: Record<
   ProviderKind,
@@ -43,6 +43,12 @@ export const PROVIDER_META: Record<
     accent: "bg-violet-100 text-violet-700",
     initials: "ST",
   },
+  paypal: {
+    name: "PayPal",
+    description: "Accept payments through PayPal's merchant payment APIs.",
+    accent: "bg-blue-100 text-blue-700",
+    initials: "PP",
+  }
 };
 
 export type ProviderStatus = "connected" | "disconnected" | "error";

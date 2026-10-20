@@ -148,6 +148,7 @@ func (s *Service) HandleInbound(ctx context.Context, requestID string, provider 
 		Headers:       headers,
 		Body:          body,
 		SecretKey:     credentials.SecretKey,
+		PublicKey:     credentials.PublicKey,
 		WebhookSecret: credentials.WebhookSecret,
 		Environment:   credentials.Environment,
 	})

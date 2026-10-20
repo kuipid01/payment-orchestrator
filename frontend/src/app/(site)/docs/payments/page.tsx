@@ -22,7 +22,7 @@ export default function PaymentsDocsPage() {
     phone: "+2348012345678"
   },
   reference: "order_1042",    // your idempotency handle
-  provider: "auto"            // or pin: "paystack" | "flutterwave" | "stripe"
+  provider: "auto"            // or pin: "paystack" | "flutterwave" | "monnify" | "stripe" | "paypal"
 });`,
           },
           body: [
@@ -49,7 +49,7 @@ export default function PaymentsDocsPage() {
           },
           list: [
             "status — successful | pending | failed | refunded | cancelled",
-            "provider — paystack | flutterwave | stripe",
+            "provider — paystack | flutterwave | monnify | stripe | paypal",
             "created_after / created_before — ISO 8601 bounds",
             "cursor — pagination cursor from the previous response",
           ],

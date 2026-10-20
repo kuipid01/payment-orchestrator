@@ -112,7 +112,12 @@ export default function SecuritySettingsPage() {
         aside={
           <>
             <Badge variant="warning">Not available yet</Badge>
-            <Switch checked={false} disabled aria-label="Two-factor authentication is unavailable" />
+            <Switch
+              checked={false}
+              onCheckedChange={() => {}}
+              disabled
+              aria-label="Two-factor authentication is unavailable"
+            />
           </>
         }
       >

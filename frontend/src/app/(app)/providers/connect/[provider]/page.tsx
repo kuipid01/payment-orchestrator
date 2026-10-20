@@ -45,6 +45,8 @@ const VALID: ProviderKind[] = [
   "paystack",
   "flutterwave",
   "monnify",
+  "stripe",
+  "paypal",
 ];
 
 type Environment = "test" | "live";
@@ -182,6 +184,9 @@ export default function ConnectProviderPage() {
     );
 
   const [secretKey, setSecretKey] = React.useState("");
+  // PayPal authenticates with a client ID and secret pair; the ID is public but
+  // required, so it is stored with the connection rather than shown afterwards.
+  const [publicKey, setPublicKey] = React.useState("");
   const [apiKey, setApiKey] = React.useState("");
   const [contractCode, setContractCode] = React.useState("");
   const [webhookSecret, setWebhookSecret] = React.useState("");
@@ -242,6 +247,10 @@ export default function ConnectProviderPage() {
       toast("warning", "Monnify credentials required", "Enter your API key and contract code as well as the secret key.");
       return;
     }
+    if (providerKind === "paypal" && !publicKey.trim()) {
+      toast("warning", "PayPal client ID required", "PayPal needs both the REST app client ID and its client secret.");
+      return;
+    }
 
     if (
       environment === "live" &&
@@ -259,6 +268,7 @@ export default function ConnectProviderPage() {
         provider: providerKind,
         environment,
         secretKey: secretKey.trim(),
+        publicKey: providerKind === "paypal" ? publicKey.trim() : undefined,
         apiKey: providerKind === "monnify" ? apiKey.trim() : undefined,
         contractCode: providerKind === "monnify" ? contractCode.trim() : undefined,
         webhookSecret: capability?.webhookSecretRequired
@@ -267,6 +277,7 @@ export default function ConnectProviderPage() {
       });
 
       setSecretKey("");
+      setPublicKey("");
       setApiKey("");
       setContractCode("");
       setWebhookSecret("");
@@ -403,10 +414,10 @@ export default function ConnectProviderPage() {
                             "webhook secret"
                           } saved for this connection.`
                         : connected.webhookSecretRequired
-                          ? `Set a ${
+                          ? `Register the endpoint above in ${meta.name}, then save the ${
                               connected.webhookSecretLabel ||
                               "webhook secret"
-                            } in ${meta.name}, then save the same value on this connection so signatures can be verified.`
+                            } it shows for that endpoint on this connection.`
                           : `${meta.name} signs webhooks using your secret key, so no additional webhook secret is required here.`}
                     </p>
                   </div>
@@ -594,8 +605,15 @@ export default function ConnectProviderPage() {
                   </h3>
 
                   <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    Enter the credentials from your {meta.name} dashboard.
-                    {providerKind !== "monnify" ? " Your public key is not a replacement for the secret key." : ""}
+                    {providerKind === "paypal"
+                      ? "Create a REST app in the PayPal Developer Dashboard, then copy its client ID and secret."
+                      : providerKind === "stripe"
+                        ? "Copy the secret key from your Stripe dashboard under Developers \u2192 API keys."
+                        : `Enter the credentials from your ${meta.name} dashboard.${
+                            providerKind !== "monnify"
+                              ? " Your public key is not a replacement for the secret key."
+                              : ""
+                          }`}
                   </p>
                 </div>
 
@@ -624,9 +642,31 @@ export default function ConnectProviderPage() {
                   </>
                 )}
 
+                {providerKind === "paypal" && (
+                  <div className="mb-5 space-y-2">
+                    <Label htmlFor="client-id">PayPal client ID</Label>
+                    <Input
+                      id="client-id"
+                      value={publicKey}
+                      onChange={(e) => setPublicKey(e.target.value)}
+                      placeholder="AX••••••••••••••••••••••••••••••••"
+                      autoComplete="off"
+                      required
+                    />
+                    <p className="text-xs leading-relaxed text-slate-400">
+                      Found with the client secret under Apps &amp; Credentials in the
+                      PayPal Developer Dashboard.
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="secret">
-                    {meta.name} secret key
+                    {providerKind === "paypal"
+                      ? "PayPal client secret"
+                      : providerKind === "stripe"
+                        ? "Stripe secret key"
+                        : `${meta.name} secret key`}
                   </Label>
 
                   <SecretInput
@@ -640,7 +680,11 @@ export default function ConnectProviderPage() {
                           ? "FLWSECK-••••••••••••"
                           : providerKind === "monnify"
                             ? "Enter your Monnify secret key"
-                            : "Enter your secret key"
+                            : providerKind === "stripe"
+                              ? `sk_${environment}_••••••••••••`
+                              : providerKind === "paypal"
+                                ? "Client secret for your REST app"
+                                : "Enter your secret key"
                     }
                     required
                   />
@@ -651,36 +695,53 @@ export default function ConnectProviderPage() {
                   </p>
                 </div>
 
-                {capability?.webhookSecretRequired && (
-                  <div className="mt-5 space-y-2">
-                    <Label htmlFor="webhook-secret">
-                      {capability.webhookSecretLabel ||
-                        "Webhook secret"}
+                {capability?.webhookSecretRequired &&
+                  capability.webhookSecretSelfAssigned && (
+                    <div className="mt-5 space-y-2">
+                      <Label htmlFor="webhook-secret">
+                        {capability.webhookSecretLabel ||
+                          "Webhook secret"}
 
-                      <span className="ml-1 font-normal text-slate-400">
-                        (optional during connection)
-                      </span>
-                    </Label>
+                        <span className="ml-1 font-normal text-slate-400">
+                          (optional during connection)
+                        </span>
+                      </Label>
 
-                    <SecretInput
-                      id="webhook-secret"
-                      value={webhookSecret}
-                      onChange={(e) =>
-                        setWebhookSecret(e.target.value)
-                      }
-                      placeholder="Enter your webhook signing secret"
-                    />
+                      <SecretInput
+                        id="webhook-secret"
+                        value={webhookSecret}
+                        onChange={(e) =>
+                          setWebhookSecret(e.target.value)
+                        }
+                        placeholder="Enter your webhook signing secret"
+                      />
 
-                    <p className="text-xs leading-relaxed text-slate-500">
-                      Set this value in your provider dashboard
-                      {capability.webhookDashboardPath
-                        ? ` under ${capability.webhookDashboardPath}`
-                        : ""}.
-                      Use the same value here to verify webhook
-                      signatures.
-                    </p>
-                  </div>
-                )}
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        Choose this value in your provider dashboard
+                        {capability.webhookDashboardPath
+                          ? ` under ${capability.webhookDashboardPath}`
+                          : ""}.
+                        Enter the same value here to verify webhook
+                        signatures.
+                      </p>
+                    </div>
+                  )}
+
+                {capability?.webhookSecretRequired &&
+                  !capability.webhookSecretSelfAssigned && (
+                    <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs leading-relaxed text-slate-600">
+                        <strong className="font-semibold text-slate-800">
+                          {capability.webhookSecretLabel ||
+                            "Webhook secret"}{" "}
+                          comes next.
+                        </strong>{" "}
+                        {meta.name} issues it for a registered endpoint, and
+                        PayConnect only generates its endpoint URL once this
+                        connection is saved. You will add it on the next step.
+                      </p>
+                    </div>
+                  )}
               </section>
 
               <SecurityNotice>
@@ -700,7 +761,11 @@ export default function ConnectProviderPage() {
 
                 <Button
                   type="submit"
-                  disabled={validating || !secretKey.trim()}
+                  disabled={
+                    validating ||
+                    !secretKey.trim() ||
+                    (providerKind === "paypal" && !publicKey.trim())
+                  }
                 >
                   {validating ? (
                     <>
@@ -772,7 +837,11 @@ export default function ConnectProviderPage() {
                       ? "https://dashboard.paystack.com/"
                       : providerKind === "flutterwave"
                         ? "https://app.flutterwave.com/"
-                        : "https://developers.monnify.com/"
+                        : providerKind === "stripe"
+                          ? "https://dashboard.stripe.com/"
+                          : providerKind === "paypal"
+                            ? "https://developer.paypal.com/dashboard/"
+                            : "https://developers.monnify.com/"
                   }
                   target="_blank"
                   rel="noreferrer"

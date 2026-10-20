@@ -48,7 +48,7 @@ const NAV: {
       { href: "/api-keys", label: "API Keys", icon: <KeyRound className="size-4" /> },
       { href: "/webhooks", label: "Webhooks", icon: <Webhook className="size-4" /> },
       { href: "/logs", label: "Logs", icon: <BookOpen className="size-4" /> },
-      { href: "/test-arena", label: "Test Arena", icon: <FlaskConical className="size-4" />, badge: "new" },
+      { href: "/test-arena", label: "Test Arena", icon: <FlaskConical className="size-4" /> },
     ],
   },
   {
@@ -57,7 +57,10 @@ const NAV: {
   },
 ];
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({ onNavigate , 
+  setSideBarOpen,
+  sideBarOpen }: { onNavigate?: () => void ,  setSideBarOpen?: React.Dispatch<React.SetStateAction<boolean>>
+  sideBarOpen?:boolean}) {
   const pathname = usePathname();
 
   // Resolve the single best nav match for the current path. The most specific
@@ -93,7 +96,9 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   )}
                 >
                   <span className={active ? "text-slate-950" : "text-slate-400"}>{item.icon}</span>
-                  {item.label}
+                  { sideBarOpen && (
+                    <span className="truncate">{item.label}</span>
+                  )}
                   {item.badge && (
                     <span className="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700">
                       {item.badge}
@@ -110,20 +115,21 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Sidebar({ className }: { className?: string }) {
+  const [sideBarOpen, setSideBarOpen] = React.useState(true);
   return (
-    <aside className={cn("flex h-full w-60 shrink-0 flex-col border-r border-slate-100 bg-white", className)}>
-      <div className="flex h-16 items-center border-b border-slate-100 px-5">
-        <Link href="/dashboard">
-          <Logo />
+    <aside className={cn("flex h-full  shrink-0 flex-col border-r border-slate-100 bg-white", className , sideBarOpen ? "w-60" :"w-fit")}>
+      <div className="flex h-16 items-center w-full border-b border-slate-100 px-5">
+        <Link href="/dashboard" className="w-full">
+          <Logo setSideBarOpen={setSideBarOpen} sideBarOpen={sideBarOpen} />
         </Link>
       </div>
       <div className="flex-1 overflow-y-auto">
-        <SidebarNav />
+        <SidebarNav  setSideBarOpen={setSideBarOpen} sideBarOpen={sideBarOpen}  />
       </div>
       <div className="space-y-2 border-t border-slate-100 p-4">
         {/* The plan is furniture, not a page: it stays visible so a limit is
             never the first a merchant hears of what they are on. */}
-        <PlanBadge />
+        <PlanBadge setSideBarOpen={setSideBarOpen} sideBarOpen={sideBarOpen}  />
        
       </div>
     </aside>
@@ -131,13 +137,14 @@ export function Sidebar({ className }: { className?: string }) {
 }
 
 export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const [sideBarOpen, setSideBarOpen] = React.useState(true);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
       <div className="absolute inset-0 bg-slate-950/40" onClick={onClose} />
       <div className="absolute left-0 top-0 flex h-full w-72 flex-col bg-white shadow-xl">
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5">
-          <Logo />
+          <Logo  setSideBarOpen={setSideBarOpen} sideBarOpen={sideBarOpen} />
           <button onClick={onClose} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close menu">
             <X className="size-5" />
           </button>

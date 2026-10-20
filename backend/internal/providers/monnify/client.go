@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -79,7 +78,6 @@ func (a *Adapter) authenticate(ctx context.Context, creds providers.Credentials)
 
 func (a *Adapter) call(ctx context.Context, method, path string, body any, retrySafe bool, creds providers.Credentials) (*providers.HTTPResult, error) {
 	token, err := a.authenticate(ctx, creds)
-	fmt.Println("TOKEN RETURNED ", token)
 	if err != nil {
 		return nil, err
 	}

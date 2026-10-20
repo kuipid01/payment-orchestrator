@@ -77,7 +77,7 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (*Connection, er
 	if err := validateCredentialShape(in.Provider, in.Environment, in.SecretKey); err != nil {
 		return nil, err
 	}
-	if err := validateProviderCredentialFields(in.Provider, in.APIKey, in.ContractCode); err != nil {
+	if err := validateProviderCredentialFields(in.Provider, in.PublicKey, in.APIKey, in.ContractCode); err != nil {
 		return nil, err
 	}
 
@@ -123,6 +123,9 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (*Connection, er
 	connection.CredentialsEncrypted = encrypted
 	connection.SecretLast4 = last4(in.SecretKey)
 	if secret := strings.TrimSpace(in.WebhookSecret); secret != "" {
+		if err := validateWebhookSecret(in.Provider, secret); err != nil {
+			return nil, err
+		}
 		masked, err := s.encryptWebhookSecret(secret)
 		if err != nil {
 			return nil, err
@@ -199,28 +202,45 @@ func (s *Service) Update(merchantID, actorName, actorRole, id string, in UpdateI
 		connection.IsDefault = false
 	}
 	if in.SecretKey != nil {
-		if err := validateCredentialShape(constants.Provider(connection.Provider), connection.Environment, *in.SecretKey); err != nil {
+		// A rotate replaces the secret, not the rest of the credential set.
+		// Merge onto what is stored so rotating a PayPal secret keeps its
+		// client ID (and a Monnify rotate keeps its API key and contract
+		// code) instead of silently writing an unusable credential.
+		stored, err := s.decrypt(connection)
+		if err != nil {
 			return nil, err
 		}
-		if err := validateProviderCredentialFields(constants.Provider(connection.Provider), valueOrEmpty(in.APIKey), valueOrEmpty(in.ContractCode)); err != nil {
-			return nil, err
-		}
-		payload := credentialPayload{SecretKey: *in.SecretKey}
+		secretKey := strings.TrimSpace(*in.SecretKey)
+		publicKey := stored.PublicKey
 		if in.PublicKey != nil {
-			payload.PublicKey = *in.PublicKey
+			publicKey = strings.TrimSpace(*in.PublicKey)
 		}
+		apiKey := stored.APIKey
 		if in.APIKey != nil {
-			payload.APIKey = *in.APIKey
+			apiKey = strings.TrimSpace(*in.APIKey)
 		}
+		contractCode := stored.ContractCode
 		if in.ContractCode != nil {
-			payload.ContractCode = *in.ContractCode
+			contractCode = strings.TrimSpace(*in.ContractCode)
+		}
+		if err := validateCredentialShape(constants.Provider(connection.Provider), connection.Environment, secretKey); err != nil {
+			return nil, err
+		}
+		if err := validateProviderCredentialFields(constants.Provider(connection.Provider), publicKey, apiKey, contractCode); err != nil {
+			return nil, err
+		}
+		payload := credentialPayload{
+			SecretKey:    secretKey,
+			PublicKey:    publicKey,
+			APIKey:       apiKey,
+			ContractCode: contractCode,
 		}
 		encrypted, err := s.Vault.Encrypt(mustJSON(payload))
 		if err != nil {
 			return nil, err
 		}
 		connection.CredentialsEncrypted = encrypted
-		connection.SecretLast4 = last4(*in.SecretKey)
+		connection.SecretLast4 = last4(secretKey)
 		connection.Status = "connected"
 		connection.ConnectedAt = &now
 		// A rotated secret must be re-verified before it is trusted.
@@ -416,6 +436,9 @@ func (s *Service) SetWebhookSecret(merchantID, actorName, actorRole, id, secret 
 		return nil, apperrors.Validation(apperrors.CodeValidationError,
 			strings.Title(connection.Provider)+" verifies webhooks with its secret key; no separate webhook secret is needed.")
 	}
+	if err := validateWebhookSecret(constants.Provider(connection.Provider), secret); err != nil {
+		return nil, err
+	}
 	stored, err := s.encryptWebhookSecret(secret)
 	if err != nil {
 		return nil, err
@@ -500,13 +523,6 @@ func (s *Service) decrypt(c *Connection) (Credentials, error) {
 		WebhookSecret: webhookSecret,
 		Environment:   c.Environment,
 	}, nil
-}
-
-func valueOrEmpty(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }
 
 // encryptWebhookSecret encrypts an inbound webhook signing value and derives its

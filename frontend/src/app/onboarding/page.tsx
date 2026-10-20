@@ -29,6 +29,7 @@ export default function OnboardingPage() {
   const [useCase, setUseCase] = React.useState<string | null>(null);
   const [provider, setProvider] = React.useState<ProviderKind | null>(null);
   const [secretKey, setSecretKey] = React.useState("");
+  const [publicKey, setPublicKey] = React.useState("");
   const [monnifyAPIKey, setMonnifyAPIKey] = React.useState("");
   const [contractCode, setContractCode] = React.useState("");
   const [appName, setAppName] = React.useState("");
@@ -36,11 +37,16 @@ export default function OnboardingPage() {
   const [apiKey, setApiKey] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
 
-  const providerOrder: ProviderKind[] = ["paystack", "flutterwave", "monnify"];
+  const providerOrder: ProviderKind[] = ["paystack", "flutterwave", "stripe", "paypal", "monnify"];
 
   async function connectProvider() {
-    if (!provider || !secretKey || (provider === "monnify" && (!monnifyAPIKey || !contractCode))) {
-      toast("warning", "Almost there", "Choose a provider and paste its secret key.");
+    if (
+      !provider ||
+      !secretKey ||
+      (provider === "monnify" && (!monnifyAPIKey || !contractCode)) ||
+      (provider === "paypal" && !publicKey.trim())
+    ) {
+      toast("warning", "Almost there", "Choose a provider and paste its credentials.");
       return;
     }
     setConnecting(true);
@@ -49,10 +55,12 @@ export default function OnboardingPage() {
         provider,
         environment: "test",
         secretKey: secretKey.trim(),
+        publicKey: provider === "paypal" ? publicKey.trim() : undefined,
         apiKey: provider === "monnify" ? monnifyAPIKey.trim() : undefined,
         contractCode: provider === "monnify" ? contractCode.trim() : undefined,
       });
       setSecretKey("");
+      setPublicKey("");
       setMonnifyAPIKey("");
       setContractCode("");
       toast("success", `${PROVIDER_META[provider].name} connected`, "Test credentials verified and stored securely.");
@@ -199,14 +207,44 @@ export default function OnboardingPage() {
                 </>
               ) : null}
 
+              {provider === "paypal" ? (
+                <div className="mt-6 space-y-1.5">
+                  <Label htmlFor="client-id">PayPal client ID</Label>
+                  <Input
+                    id="client-id"
+                    value={publicKey}
+                    onChange={(e) => setPublicKey(e.target.value)}
+                    placeholder="AX••••••••••••••••••••"
+                    autoComplete="off"
+                    className="font-mono"
+                  />
+                </div>
+              ) : null}
+
               <div className="mt-6 space-y-1.5">
-                <Label htmlFor="secret">{provider ? `${PROVIDER_META[provider].name} secret key` : "Secret key"}</Label>
+                <Label htmlFor="secret">
+                  {provider === "paypal"
+                    ? "PayPal client secret"
+                    : provider
+                      ? `${PROVIDER_META[provider].name} secret key`
+                      : "Secret key"}
+                </Label>
                 <Input
                   id="secret"
                   type="password"
                   value={secretKey}
                   onChange={(e) => setSecretKey(e.target.value)}
-                  placeholder={provider === "paystack" ? "sk_test_…" : provider === "flutterwave" ? "FLWSECK-…" : "Monnify secret key"}
+                  placeholder={
+                    provider === "paystack"
+                      ? "sk_test_…"
+                      : provider === "flutterwave"
+                        ? "FLWSECK-…"
+                        : provider === "stripe"
+                          ? "sk_test_…"
+                          : provider === "paypal"
+                            ? "Client secret for your REST app"
+                            : "Monnify secret key"
+                  }
                   className="font-mono"
                 />
               </div>

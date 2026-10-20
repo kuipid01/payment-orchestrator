@@ -107,6 +107,10 @@ type WebhookVerificationRequest struct {
 	// SecretKey is the connection's API secret key, the signing key for
 	// providers that need no separate webhook secret.
 	SecretKey string
+	// PublicKey is the connection's public identifier when the provider needs
+	// it to authenticate an API call made while verifying a webhook (PayPal's
+	// client ID). Empty for providers that do not.
+	PublicKey string
 	// WebhookSecret, when set, is the provider-specific signing value that takes
 	// precedence over SecretKey (Flutterwave's "verif-hash").
 	WebhookSecret string

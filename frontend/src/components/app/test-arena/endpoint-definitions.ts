@@ -107,6 +107,8 @@ export const ENDPOINTS: EndpointDef[] = [
           { value: "paystack", label: "paystack – Paystack" },
           { value: "flutterwave", label: "flutterwave – Flutterwave" },
           { value: "monnify", label: "monnify – Monnify" },
+          { value: "stripe", label: "stripe – Stripe" },
+          { value: "paypal", label: "paypal – PayPal" },
         ],
         description: "Choose a specific provider or let smart routing decide.",
       },

@@ -96,13 +96,18 @@ func Build(cfg config.Config, db *database.DB, store redis.Store, logger *slog.L
 	responder := apihttp.NewResponder()
 
 	registry := factory.NewRegistry(factory.Config{
-		PaystackBaseURL:    cfg.Providers.PaystackBaseURL,
-		FlutterwaveBaseURL: cfg.Providers.FlutterwaveBaseURL,
-		MonnifyTestBaseURL: cfg.Providers.MonnifyTestBaseURL,
-		MonnifyLiveBaseURL: cfg.Providers.MonnifyLiveBaseURL,
-		Timeout:            cfg.Providers.RequestTimeout,
-		MaxRetries:         cfg.Providers.MaxRetries,
-		UserAgent:          cfg.App.Name,
+		PaystackBaseURL:       cfg.Providers.PaystackBaseURL,
+		FlutterwaveBaseURL:    cfg.Providers.FlutterwaveBaseURL,
+		MonnifyTestBaseURL:    cfg.Providers.MonnifyTestBaseURL,
+		MonnifyLiveBaseURL:    cfg.Providers.MonnifyLiveBaseURL,
+		StripeBaseURL:         cfg.Providers.StripeBaseURL,
+		PayPalTestBaseURL:     cfg.Providers.PayPalTestBaseURL,
+		PayPalLiveBaseURL:     cfg.Providers.PayPalLiveBaseURL,
+		Timeout:               cfg.Providers.RequestTimeout,
+		MaxRetries:            cfg.Providers.MaxRetries,
+		UserAgent:             cfg.App.Name,
+		StripeManagedPayments: cfg.Providers.StripeManagedPayments,
+		StripeDefaultTaxCode:  cfg.Providers.StripeDefaultTaxCode,
 	})
 
 	/* ------------------------------- persistence ------------------------------- */

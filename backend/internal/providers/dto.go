@@ -58,12 +58,13 @@ func ToConnectionResponse(c *Connection) ConnectionResponse {
 // ProviderDescriptor advertises a supported provider, including what its inbound
 // webhooks require, so the dashboard never special-cases a provider by name.
 type ProviderDescriptor struct {
-	Provider               string `json:"provider"`
-	Default                string `json:"default_currency"`
-	WebhookSecretRequired  bool   `json:"webhook_secret_required"`
-	WebhookSecretLabel     string `json:"webhook_secret_label,omitempty"`
-	WebhookSignatureHeader string `json:"webhook_signature_header,omitempty"`
-	WebhookDashboardPath   string `json:"webhook_dashboard_path,omitempty"`
+	Provider                  string `json:"provider"`
+	Default                   string `json:"default_currency"`
+	WebhookSecretRequired     bool   `json:"webhook_secret_required"`
+	WebhookSecretLabel        string `json:"webhook_secret_label,omitempty"`
+	WebhookSecretSelfAssigned bool   `json:"webhook_secret_self_assigned"`
+	WebhookSignatureHeader    string `json:"webhook_signature_header,omitempty"`
+	WebhookDashboardPath      string `json:"webhook_dashboard_path,omitempty"`
 }
 
 func formatTime(t *time.Time) *string {
@@ -80,12 +81,13 @@ func Descriptors() []ProviderDescriptor {
 	for _, provider := range constants.AllProviders() {
 		support := constants.WebhookSupportFor(provider)
 		out = append(out, ProviderDescriptor{
-			Provider:               provider.String(),
-			Default:                DefaultCurrencyFor(provider),
-			WebhookSecretRequired:  support.RequiresWebhookSecret,
-			WebhookSecretLabel:     support.SecretLabel,
-			WebhookSignatureHeader: support.SignatureHeader,
-			WebhookDashboardPath:   support.DashboardPath,
+			Provider:                  provider.String(),
+			Default:                   DefaultCurrencyFor(provider),
+			WebhookSecretRequired:     support.RequiresWebhookSecret,
+			WebhookSecretLabel:        support.SecretLabel,
+			WebhookSecretSelfAssigned: support.SecretSelfAssigned,
+			WebhookSignatureHeader:    support.SignatureHeader,
+			WebhookDashboardPath:      support.DashboardPath,
 		})
 	}
 	return out

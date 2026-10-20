@@ -7,6 +7,8 @@ const (
 	ProviderPaystack    Provider = "paystack"
 	ProviderFlutterwave Provider = "flutterwave"
 	ProviderMonnify     Provider = "monnify"
+	ProviderStripe      Provider = "stripe"
+	ProviderPayPal      Provider = "paypal"
 
 	// ProviderAuto asks the routing service to pick a provider.
 	ProviderAuto Provider = "auto"
@@ -14,7 +16,7 @@ const (
 
 // AllProviders lists every provider With a registry entry.
 func AllProviders() []Provider {
-	return []Provider{ProviderPaystack, ProviderFlutterwave, ProviderMonnify}
+	return []Provider{ProviderPaystack, ProviderFlutterwave, ProviderMonnify, ProviderStripe, ProviderPayPal}
 }
 
 // IsValidProvider reports whether p is a concrete, supported provider.
@@ -44,6 +46,11 @@ type WebhookSupport struct {
 	RequiresWebhookSecret bool
 	// SecretLabel names that value in the provider's own vocabulary.
 	SecretLabel string
+	// SecretSelfAssigned is true when the merchant chooses the signing value
+	// before any endpoint exists. When false, the provider issues the value for
+	// a registered endpoint, so it can only be supplied after the PayConnect
+	// webhook URL has been created.
+	SecretSelfAssigned bool
 	// DashboardPath is where the merchant configures the webhook.
 	DashboardPath string
 }
@@ -64,12 +71,31 @@ func WebhookSupportFor(p Provider) WebhookSupport {
 			SignatureHeader:       "verif-hash",
 			RequiresWebhookSecret: true,
 			SecretLabel:           "Secret hash",
+			SecretSelfAssigned:    true,
 			DashboardPath:         "Settings → Webhooks",
 		}
 	case ProviderMonnify:
 		return WebhookSupport{
 			SignatureHeader: "monnify-signature",
 			DashboardPath:   "Settings → API Keys & Webhooks",
+		}
+	case ProviderStripe:
+		// Stripe signs with a per-endpoint signing secret created in the
+		// dashboard, never with the account's API key.
+		return WebhookSupport{
+			SignatureHeader:       "Stripe-Signature",
+			RequiresWebhookSecret: true,
+			SecretLabel:           "Webhook signing secret",
+			DashboardPath:         "Developers → Webhooks",
+		}
+	case ProviderPayPal:
+		// PayPal verifies deliveries server-to-server against a webhook
+		// registration, identified by its webhook id.
+		return WebhookSupport{
+			SignatureHeader:       "paypal-transmission-sig",
+			RequiresWebhookSecret: true,
+			SecretLabel:           "Webhook ID",
+			DashboardPath:         "Developer Dashboard → Webhooks",
 		}
 	default:
 		return WebhookSupport{}

@@ -11,18 +11,25 @@ import (
 	"github.com/kuipid01/payconnect/internal/providers"
 	"github.com/kuipid01/payconnect/internal/providers/flutterwave"
 	"github.com/kuipid01/payconnect/internal/providers/monnify"
+	"github.com/kuipid01/payconnect/internal/providers/paypal"
 	"github.com/kuipid01/payconnect/internal/providers/paystack"
+	"github.com/kuipid01/payconnect/internal/providers/stripe"
 )
 
 // Config carries the per-provider transport settings.
 type Config struct {
-	PaystackBaseURL    string
-	FlutterwaveBaseURL string
-	MonnifyTestBaseURL string
-	MonnifyLiveBaseURL string
-	Timeout            time.Duration
-	MaxRetries         int
-	UserAgent          string
+	PaystackBaseURL       string
+	FlutterwaveBaseURL    string
+	MonnifyTestBaseURL    string
+	MonnifyLiveBaseURL    string
+	StripeBaseURL         string
+	StripeManagedPayments bool
+	StripeDefaultTaxCode  string
+	PayPalTestBaseURL     string
+	PayPalLiveBaseURL     string
+	Timeout               time.Duration
+	MaxRetries            int
+	UserAgent             string
 }
 
 // NewRegistry builds the adapter registry for a deployment. Adding a provider
@@ -50,6 +57,21 @@ func NewRegistry(cfg Config) providers.Registry {
 		monnify.New(monnify.Config{
 			TestBaseURL: cfg.MonnifyTestBaseURL,
 			LiveBaseURL: cfg.MonnifyLiveBaseURL,
+			Client:      client,
+			MaxRetries:  cfg.MaxRetries,
+			UserAgent:   cfg.UserAgent,
+		}),
+		stripe.New(stripe.Config{
+			BaseURL:         cfg.StripeBaseURL,
+			Client:          client,
+			MaxRetries:      cfg.MaxRetries,
+			UserAgent:       cfg.UserAgent,
+			ManagedPayments: cfg.StripeManagedPayments,
+			DefaultTaxCode:  cfg.StripeDefaultTaxCode,
+		}),
+		paypal.New(paypal.Config{
+			TestBaseURL: cfg.PayPalTestBaseURL,
+			LiveBaseURL: cfg.PayPalLiveBaseURL,
 			Client:      client,
 			MaxRetries:  cfg.MaxRetries,
 			UserAgent:   cfg.UserAgent,
