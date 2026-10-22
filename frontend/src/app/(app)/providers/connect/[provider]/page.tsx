@@ -22,6 +22,7 @@ import {
   Input,
   Label,
   PageHeader,
+  ProviderLogo,
   Radio,
 } from "@/components/ui";
 import {
@@ -152,16 +153,7 @@ function ProviderMark({
 }: {
   provider: ProviderKind;
 }) {
-  const meta = PROVIDER_META[provider];
-
-  return (
-    <div
-      className={`flex size-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${meta.accent}`}
-      aria-label={meta.name}
-    >
-      {meta.initials}
-    </div>
-  );
+  return <ProviderLogo provider={provider} size="lg" />;
 }
 
 export default function ConnectProviderPage() {

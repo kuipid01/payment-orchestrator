@@ -27,6 +27,7 @@ export default function PaymentsDocsPage() {
           },
           body: [
             "amount is always in minor units (kobo for NGN, cents for USD). provider: \"auto\" routes to the first healthy connected provider for the currency.",
+            "Provider-specific settings go in a namespaced options block — options.stripe or options.paypal. They are validated against the routed provider, pin the payment to it, and disable fallback.",
           ],
         },
         {

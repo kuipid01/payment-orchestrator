@@ -1,47 +1,31 @@
 "use client"
 
 import { cn } from "@/lib/utils";
-import { ChevronLeft } from "lucide-react";
-import { usePathname } from "next/navigation";
 
 export function Logo({
   className,
   mark = false,
-  setSideBarOpen,
-  sideBarOpen
 }: {
   className?: string;
+  /** Render only the mark, without the PayConnect wordmark. */
   mark?: boolean;
-  setSideBarOpen?: React.Dispatch<React.SetStateAction<boolean>>
-  sideBarOpen?: boolean
 }) {
-  const pathName  = usePathname();
-  const isNotAppDashbaord = !pathName.includes('/app/dashboard');
-  const isLandingPage = pathName === '/';
   return (
-    <div className=" flex items-center justify-between w-full  ">
-      <span className={cn("inline-flex items-center gap-2", className)}>
-        <span className="flex size-7 items-center justify-center rounded-[10px] bg-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.25)]">
-          <svg viewBox="0 0 24 24" fill="none" className="size-4 text-brand-500">
-            <path
-              d="M12 3 5 6.5v5.1c0 4.6 3 8 7 9.4 4-1.4 7-4.8 7-9.4V6.5L12 3Z"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinejoin="round"
-            />
-            <path d="m9 12 2.2 2.2L15.5 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-        { isLandingPage ? <span className="text-[15px] font-semibold tracking-tight text-slate-900">PayConnect</span> : !mark && sideBarOpen  &&<span className="text-[15px] font-semibold tracking-tight text-slate-900">PayConnect</span>}
+    <span className={cn("inline-flex min-w-0 items-center gap-2", className)}>
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.25)]">
+        <svg viewBox="0 0 24 24" fill="none" className="size-4 text-brand-500">
+          <path
+            d="M12 3 5 6.5v5.1c0 4.6 3 8 7 9.4 4-1.4 7-4.8 7-9.4V6.5L12 3Z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <path d="m9 12 2.2 2.2L15.5 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </span>
-
-      <>
-      {
-        isNotAppDashbaord ? null :   <ChevronLeft onClick={() => { setSideBarOpen && setSideBarOpen(!sideBarOpen) }} />
-      }
-      
-      </>
-    </div>
-
+      {!mark && (
+        <span className="truncate text-[15px] font-semibold tracking-tight text-slate-900">PayConnect</span>
+      )}
+    </span>
   );
 }

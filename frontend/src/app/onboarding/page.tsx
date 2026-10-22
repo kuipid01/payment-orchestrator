@@ -11,7 +11,7 @@ import {
   KeyRound,
   Rocket,
 } from "lucide-react";
-import { Button, Card, Input, Label } from "@/components/ui";
+import { Button, Card, Input, Label, ProviderLogo } from "@/components/ui";
 import { MaskedSecret, SecretInput, SecurityNotice } from "@/components/ui/part2";
 import { Logo } from "@/components/ui/logo";
 import { toast } from "@/components/ui/toaster";
@@ -184,9 +184,7 @@ export default function OnboardingPage() {
                           : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
-                      <span className={`flex size-8 items-center justify-center rounded-lg text-[10px] font-bold ${meta.accent}`}>
-                        {meta.initials}
-                      </span>
+                      <ProviderLogo provider={p} size="md" />
                       <span className="text-[13.5px] font-semibold text-slate-900">{meta.name}</span>
                       <span className="text-[11.5px] leading-snug text-slate-400">{meta.description}</span>
                     </button>

@@ -59,7 +59,39 @@ export default function ProvidersDocsPage() {
           title: "Routing & failover",
           body: [
             "With provider: \"auto\", PayConnect routes each payment to the first healthy connected provider that supports the currency. If a provider errors before authorization, the request fails fast with a provider_error so you can retry.",
+            "GET /v1/providers lists each provider's supported_options — the payment.options fields it accepts — so a client can discover capabilities instead of hard-coding them. Supplying options pins the payment to that provider and turns fallback off, because a fallback provider would silently ignore them.",
           ],
+        },
+        {
+          id: "payment-options",
+          title: "Provider payment options",
+          body: [
+            "Provider-specific settings belong on the payment request, under a namespace: options.stripe or options.paypal. They are typed and validated against the routed provider before any provider API call, so an unsupported field is a 400 with an actionable message rather than something silently dropped.",
+            "Stripe accepts merchant_of_record (\"standard\" or \"managed\"), product_name, product_description, product_tax_code, customer_email, success_url, cancel_url, submit_type, locale, billing_address_collection, allow_promotion_codes, setup_future_usage and payment_intent_metadata. Managed Payments sets managed_payments.enabled on the Checkout Session and requires an eligible product tax code; without one the request is rejected. Standard Payments never sends that configuration.",
+            "PayPal accepts description, invoice_id, custom_id, payer_email, brand_name, locale, landing_page, user_action and shipping_preference, mapped onto the Orders v2 purchase unit and application context. Capture/authorization behaviour is not caller-selectable: PayConnect creates CAPTURE-intent orders and captures on verification.",
+            "Paystack, Flutterwave and Monnify accept no options; sending any is a validation error.",
+          ],
+          code: {
+            language: "bash",
+            code: `curl -X POST https://api.payconnect.dev/v1/payments \\
+  -H "Authorization: Bearer vpay_live_…" \\
+  -H "Idempotency-Key: order_1042" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+        "amount": 20000,
+        "currency": "USD",
+        "customer": { "email": "customer@example.com" },
+        "callback_url": "https://store.example/return",
+        "options": {
+          "stripe": {
+            "merchant_of_record": "standard",
+            "product_name": "Pro plan",
+            "product_tax_code": "txcd_10000000"
+          }
+        }
+      }'`,
+          },
+          note: "Options participate in the idempotency hash: replaying the same Idempotency-Key with different provider settings is refused instead of returning the earlier payment. Dashboard test transactions always use standard Payments, so merchant_of_record \"managed\" is rejected there.",
         },
         {
           id: "rotation",

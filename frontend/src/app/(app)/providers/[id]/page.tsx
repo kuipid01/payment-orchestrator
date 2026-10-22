@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, Globe, Lock, PlugZap, RotateCcw, Unplug, X } from "lucide-react";
-import { Badge, Button, Card, CopyField, EnvironmentBadge, Input, Label, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, CopyField, EnvironmentBadge, Input, Label, PageHeader, ProviderLogo } from "@/components/ui";
 import { Modal, SecretInput, SecurityNotice } from "@/components/ui/part2";
 import { useAsync } from "@/hooks/use-async";
 import {
@@ -16,6 +16,7 @@ import {
   setProviderWebhookSecret,
   testProviderConnection,
   updateProviderConnection,
+  type PaymentOptionsInput,
 } from "@/lib/api";
 import { formatDateTime, timeAgo } from "@/lib/utils";
 import { PROVIDER_META, type ProviderConnection } from "@/lib/types";
@@ -182,6 +183,9 @@ export default function ProviderDetailPage() {
   const [testAmount, setTestAmount] = React.useState("100");
   const [testEmail, setTestEmail] = React.useState("");
   const [testCurrency, setTestCurrency] = React.useState("");
+  const [testProductName, setTestProductName] = React.useState("");
+  const [testProductDescription, setTestProductDescription] = React.useState("");
+  const [testInvoiceId, setTestInvoiceId] = React.useState("");
   const [testBusy, setTestBusy] = React.useState(false);
   const [testError, setTestError] = React.useState<string | null>(null);
   const [returnedFromCheckout, setReturnedFromCheckout] = React.useState(
@@ -220,8 +224,49 @@ export default function ProviderDetailPage() {
   const connection = provider;
   const meta = PROVIDER_META[connection.provider];
 
+  // Which provider options this connection accepts is the API's answer, not a
+  // list maintained in the dashboard.
+  const supportsOption = (key: string) => connection.supportedOptions.includes(key);
+  const supportsStripeOptions = supportsOption("product_name");
+  const supportsPayPalOptions = !supportsStripeOptions && supportsOption("description");
+
+  /**
+   * Builds the options block for the test charge from whatever the merchant
+   * filled in. An empty form sends no options at all, so the request stays a
+   * plain test payment. Managed Payments is deliberately absent: the API
+   * requires standard Payments for dashboard test transactions.
+   */
+  function buildTestOptions(): PaymentOptionsInput | undefined {
+    if (supportsStripeOptions) {
+      const productName = testProductName.trim();
+      const description = testProductDescription.trim();
+      if (!productName && !description) return undefined;
+      return {
+        stripe: {
+          ...(productName ? { product_name: productName } : {}),
+          ...(description ? { product_description: description } : {}),
+        },
+      };
+    }
+    if (supportsPayPalOptions) {
+      const description = testProductDescription.trim();
+      const invoiceId = testInvoiceId.trim();
+      if (!description && !invoiceId) return undefined;
+      return {
+        paypal: {
+          ...(description ? { description } : {}),
+          ...(invoiceId ? { invoice_id: invoiceId } : {}),
+        },
+      };
+    }
+    return undefined;
+  }
+
   function openTest() {
     setTestCurrency(connection.currency || "NGN");
+    setTestProductName("");
+    setTestProductDescription("");
+    setTestInvoiceId("");
     setTestError(null);
     setTestOpen(true);
   }
@@ -245,6 +290,7 @@ export default function ProviderDetailPage() {
         currency: (testCurrency || connection.currency || "NGN").toUpperCase(),
         email: testEmail.trim(),
         callbackUrl: `${window.location.origin}/providers/${connection.id}?checkout=return`,
+        options: buildTestOptions(),
       });
       if (!payment.authorizationUrl) {
         setTestError("The provider accepted the charge but returned no checkout URL. Check this payment in the dashboard.");
@@ -417,9 +463,7 @@ export default function ProviderDetailPage() {
             <dl className="divide-y divide-slate-100 px-5 py-1">
               <DetailRow label="Provider">
                 <span className="inline-flex items-center gap-2">
-                  <span className={`flex size-5 items-center justify-center rounded text-[9px] font-bold ${meta.accent}`}>
-                    {meta.initials}
-                  </span>
+                  <ProviderLogo provider={provider.provider} size="xs" />
                   {meta.name}
                 </span>
               </DetailRow>
@@ -585,6 +629,49 @@ export default function ProviderDetailPage() {
               />
             </div>
           </div>
+          {supportsStripeOptions || supportsPayPalOptions ? (
+            <fieldset className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+              <legend className="px-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">
+                {meta.name} payment options
+              </legend>
+              {supportsStripeOptions ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="test-product-name">Product name</Label>
+                  <Input
+                    id="test-product-name"
+                    value={testProductName}
+                    onChange={(event) => setTestProductName(event.target.value)}
+                    placeholder="Pro plan"
+                  />
+                  <p className="text-[11.5px] text-slate-400">
+                    Shown on the Stripe Checkout page. Leave it blank and PayConnect names the line item for you.
+                  </p>
+                </div>
+              ) : null}
+              <div className="space-y-1.5">
+                <Label htmlFor="test-product-description">
+                  {supportsPayPalOptions ? "Purchase description" : "Product description"}
+                </Label>
+                <Input
+                  id="test-product-description"
+                  value={testProductDescription}
+                  onChange={(event) => setTestProductDescription(event.target.value)}
+                  placeholder="Annual subscription"
+                />
+              </div>
+              {supportsPayPalOptions ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="test-invoice-id">Invoice ID</Label>
+                  <Input
+                    id="test-invoice-id"
+                    value={testInvoiceId}
+                    onChange={(event) => setTestInvoiceId(event.target.value)}
+                    placeholder="INV-1042"
+                  />
+                </div>
+              ) : null}
+            </fieldset>
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="test-email">Customer email</Label>
             <Input

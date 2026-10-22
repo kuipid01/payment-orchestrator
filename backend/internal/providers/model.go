@@ -64,6 +64,13 @@ type PaymentRequest struct {
 	Description string
 	CallbackURL string
 	Metadata    map[string]any
+	// Options carries the caller's validated provider-specific settings. An
+	// adapter reads only its own namespace and translates each field explicitly.
+	Options PaymentOptions
+	// Test marks a dashboard-initiated sandbox charge. It is set by the
+	// authenticated test route, never by the caller, so an adapter can apply a
+	// test-only policy without trusting a request body.
+	Test bool
 }
 
 // PaymentResult is a provider-independent charge (or verification) result.

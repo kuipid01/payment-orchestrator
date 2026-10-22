@@ -88,10 +88,10 @@ function AccountMenu() {
 
 export function Topbar() {
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-slate-100 bg-white/90 px-4 backdrop-blur lg:px-8">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-2 border-b border-slate-100 bg-white/90 px-3 backdrop-blur sm:gap-3 sm:px-4 lg:px-8">
       {/* Mobile: menu + logo */}
       <MobileMenu />
-      <Link href="/dashboard" className="lg:hidden">
+      <Link href="/dashboard" className="min-w-0 lg:hidden">
         <Logo />
       </Link>
 
@@ -107,7 +107,7 @@ export function Topbar() {
         </kbd>
       </div>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <Link
           href="/docs"
           className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:flex"
@@ -130,12 +130,26 @@ export function Topbar() {
 
 function MobileMenu() {
   const [open, setOpen] = React.useState(false);
+
+  // Resizing to the desktop breakpoint hides the drawer; close it too, so it
+  // does not keep the page scroll-locked behind a hidden panel.
+  React.useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    desktop.addEventListener("change", onChange);
+    return () => desktop.removeEventListener("change", onChange);
+  }, []);
+
   return (
     <>
       <button
-        className="-ml-1 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+        type="button"
+        className="-ml-1 flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
         onClick={() => setOpen(true)}
         aria-label="Open menu"
+        aria-expanded={open}
       >
         <Menu className="size-5" />
       </button>

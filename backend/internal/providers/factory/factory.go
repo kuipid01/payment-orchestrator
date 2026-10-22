@@ -18,18 +18,16 @@ import (
 
 // Config carries the per-provider transport settings.
 type Config struct {
-	PaystackBaseURL       string
-	FlutterwaveBaseURL    string
-	MonnifyTestBaseURL    string
-	MonnifyLiveBaseURL    string
-	StripeBaseURL         string
-	StripeManagedPayments bool
-	StripeDefaultTaxCode  string
-	PayPalTestBaseURL     string
-	PayPalLiveBaseURL     string
-	Timeout               time.Duration
-	MaxRetries            int
-	UserAgent             string
+	PaystackBaseURL    string
+	FlutterwaveBaseURL string
+	MonnifyTestBaseURL string
+	MonnifyLiveBaseURL string
+	StripeBaseURL      string
+	PayPalTestBaseURL  string
+	PayPalLiveBaseURL  string
+	Timeout            time.Duration
+	MaxRetries         int
+	UserAgent          string
 }
 
 // NewRegistry builds the adapter registry for a deployment. Adding a provider
@@ -62,12 +60,10 @@ func NewRegistry(cfg Config) providers.Registry {
 			UserAgent:   cfg.UserAgent,
 		}),
 		stripe.New(stripe.Config{
-			BaseURL:         cfg.StripeBaseURL,
-			Client:          client,
-			MaxRetries:      cfg.MaxRetries,
-			UserAgent:       cfg.UserAgent,
-			ManagedPayments: cfg.StripeManagedPayments,
-			DefaultTaxCode:  cfg.StripeDefaultTaxCode,
+			BaseURL:    cfg.StripeBaseURL,
+			Client:     client,
+			MaxRetries: cfg.MaxRetries,
+			UserAgent:  cfg.UserAgent,
 		}),
 		paypal.New(paypal.Config{
 			TestBaseURL: cfg.PayPalTestBaseURL,

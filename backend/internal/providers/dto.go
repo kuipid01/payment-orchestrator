@@ -33,6 +33,11 @@ type ConnectionResponse struct {
 	WebhookSecretMasked    string  `json:"webhook_secret_masked,omitempty"`
 	WebhookSecretSet       bool    `json:"webhook_secret_set"`
 	WebhookLastEventAt     *string `json:"webhook_last_event_at,omitempty"`
+
+	// SupportedOptions lists the payment.options fields this provider accepts.
+	// The dashboard renders its inputs from this list, so adding a provider
+	// option never requires a frontend special-case.
+	SupportedOptions []string `json:"supported_options"`
 }
 
 // ToConnectionResponse maps a connection onto the public DTO.
@@ -52,6 +57,7 @@ func ToConnectionResponse(c *Connection) ConnectionResponse {
 		UpdatedAt:           c.UpdatedAt.UTC().Format(time.RFC3339),
 		WebhookSecretMasked: c.WebhookSecretMasked,
 		WebhookLastEventAt:  formatTime(c.WebhookLastEventAt),
+		SupportedOptions:    OptionKeys(constants.Provider(c.Provider)),
 	}
 }
 
@@ -65,6 +71,8 @@ type ProviderDescriptor struct {
 	WebhookSecretSelfAssigned bool   `json:"webhook_secret_self_assigned"`
 	WebhookSignatureHeader    string `json:"webhook_signature_header,omitempty"`
 	WebhookDashboardPath      string `json:"webhook_dashboard_path,omitempty"`
+	// SupportedOptions is the payment.options vocabulary this provider accepts.
+	SupportedOptions []string `json:"supported_options"`
 }
 
 func formatTime(t *time.Time) *string {
@@ -88,6 +96,7 @@ func Descriptors() []ProviderDescriptor {
 			WebhookSecretSelfAssigned: support.SecretSelfAssigned,
 			WebhookSignatureHeader:    support.SignatureHeader,
 			WebhookDashboardPath:      support.DashboardPath,
+			SupportedOptions:          OptionKeys(provider),
 		})
 	}
 	return out

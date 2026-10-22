@@ -14,14 +14,15 @@ import (
 const providerName = "stripe"
 
 // Config configures the Stripe adapter. Test and live keys share one host: the
-// key prefix, not the URL, decides which mode a request runs in.
+// key prefix, not the URL, decides which mode a request runs in. It carries
+// transport settings only: whether a payment uses Managed Payments or a product
+// tax code is a per-request, caller-supplied option, never deployment
+// configuration.
 type Config struct {
-	BaseURL         string
-	Client          *http.Client
-	MaxRetries      int
-	UserAgent       string
-	ManagedPayments bool
-	DefaultTaxCode  string
+	BaseURL    string
+	Client     *http.Client
+	MaxRetries int
+	UserAgent  string
 }
 
 // Adapter speaks to the Stripe API with the merchant's own secret key.

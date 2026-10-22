@@ -11,6 +11,7 @@ import (
 	apihttp "github.com/kuipid01/payconnect/internal/http"
 	"github.com/kuipid01/payconnect/internal/middleware"
 	"github.com/kuipid01/payconnect/internal/platform/identity"
+	"github.com/kuipid01/payconnect/internal/providers"
 )
 
 // Handler maps HTTP requests onto the payment service.
@@ -58,14 +59,15 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 func (h *Handler) Test(c *fiber.Ctx) error {
 	principal := identity.From(c)
 	var req struct {
-		ConnectionID string        `json:"connection_id"`
-		Amount       int64         `json:"amount"`
-		Currency     string        `json:"currency"`
-		Reference    string        `json:"reference"`
-		Description  string        `json:"description"`
-		CallbackURL  string        `json:"callback_url"`
-		Customer     CustomerInput `json:"customer"`
-		Email        string        `json:"email"`
+		ConnectionID string                   `json:"connection_id"`
+		Amount       int64                    `json:"amount"`
+		Currency     string                   `json:"currency"`
+		Reference    string                   `json:"reference"`
+		Description  string                   `json:"description"`
+		CallbackURL  string                   `json:"callback_url"`
+		Customer     CustomerInput            `json:"customer"`
+		Email        string                   `json:"email"`
+		Options      providers.PaymentOptions `json:"options"`
 	}
 	if err := apihttp.Body(c, &req); err != nil {
 		return h.responder.Error(c, err)
@@ -86,6 +88,7 @@ func (h *Handler) Test(c *fiber.Ctx) error {
 			Description: req.Description,
 			CallbackURL: req.CallbackURL,
 			Customer:    customer,
+			Options:     req.Options,
 		},
 		RequestID: middleware.RequestIDValue(c),
 	})

@@ -39,29 +39,7 @@ func (a *Adapter) CreatePayment(ctx context.Context, creds providers.Credentials
 			"A callback_url is required for PayPal Checkout so the customer can return to the store.")
 	}
 
-	description := strings.TrimSpace(req.Description)
-	if description == "" {
-		description = "Payment " + req.Reference
-	}
-	payload := map[string]any{
-		"intent": "CAPTURE",
-		"purchase_units": []map[string]any{{
-			"reference_id": req.Reference,
-			"custom_id":    req.Reference,
-			"invoice_id":   req.Reference,
-			"description":  description,
-			"amount": map[string]string{
-				"currency_code": currency,
-				"value":         providers.FormatMajor(req.AmountMinor, currency),
-			},
-		}},
-		"application_context": map[string]string{
-			"return_url":          appendQuery(callback, "reference="+url.QueryEscape(req.Reference)),
-			"cancel_url":          appendQuery(callback, "payment=cancelled"),
-			"user_action":         "PAY_NOW",
-			"shipping_preference": "NO_SHIPPING",
-		},
-	}
+	payload := orderPayload(req, currency, callback)
 
 	result, err := a.call(ctx, http.MethodPost, "/v2/checkout/orders", payload, false, creds,
 		"order:"+req.Reference)
@@ -189,6 +167,85 @@ func (a *Adapter) RefundPayment(ctx context.Context, creds providers.Credentials
 		out.FailureMessage = "PayPal rejected the refund."
 	}
 	return out, nil
+}
+
+// orderPayload builds the Orders v2 create body. Every provider-specific value
+// comes from the caller's validated options, and each one is mapped explicitly:
+// arbitrary caller-controlled fields never reach PayPal.
+func orderPayload(req providers.PaymentRequest, currency, callback string) map[string]any {
+	opts := req.Options.PayPal
+	if opts == nil {
+		opts = &providers.PayPalOptions{}
+	}
+
+	description := firstNonEmpty(opts.Description, req.Description)
+	if description == "" {
+		description = generatedDescription(req)
+	}
+
+	purchaseUnit := map[string]any{
+		"reference_id": req.Reference,
+		// custom_id is how a PayPal webhook is mapped back to the payment, so
+		// it always carries an identifier: the caller's own if supplied.
+		"custom_id":   firstNonEmpty(opts.CustomID, req.Reference),
+		"invoice_id":  firstNonEmpty(opts.InvoiceID, req.Reference),
+		"description": description,
+		"amount": map[string]string{
+			"currency_code": currency,
+			"value":         providers.FormatMajor(req.AmountMinor, currency),
+		},
+	}
+
+	applicationContext := map[string]string{
+		"return_url":          appendQuery(callback, "reference="+url.QueryEscape(req.Reference)),
+		"cancel_url":          appendQuery(callback, "payment=cancelled"),
+		"user_action":         firstNonEmpty(opts.UserAction, "PAY_NOW"),
+		"shipping_preference": firstNonEmpty(opts.ShippingPreference, "NO_SHIPPING"),
+	}
+	if opts.BrandName != "" {
+		applicationContext["brand_name"] = opts.BrandName
+	}
+	if opts.Locale != "" {
+		applicationContext["locale"] = opts.Locale
+	}
+	if opts.LandingPage != "" {
+		applicationContext["landing_page"] = opts.LandingPage
+	}
+
+	payload := map[string]any{
+		"intent":              "CAPTURE",
+		"purchase_units":      []map[string]any{purchaseUnit},
+		"application_context": applicationContext,
+	}
+	if email := firstNonEmpty(opts.PayerEmail, req.Email); email != "" {
+		payload["payer"] = map[string]string{"email_address": email}
+	}
+	return payload
+}
+
+// generatedDescription names the purchase unit when the caller supplied no
+// description. A dashboard test charge is labelled as one.
+func generatedDescription(req providers.PaymentRequest) string {
+	reference := strings.TrimSpace(req.Reference)
+	switch {
+	case req.Test && reference != "":
+		return "Test payment " + reference
+	case req.Test:
+		return "Test payment"
+	case reference != "":
+		return "Payment " + reference
+	default:
+		return "Payment"
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func (a *Adapter) fetchOrder(ctx context.Context, creds providers.Credentials, id string) (*order, error) {

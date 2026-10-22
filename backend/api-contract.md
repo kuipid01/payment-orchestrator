@@ -107,6 +107,64 @@ for a `test` connection and `sk_live_`/`rk_live_` for `live`. PayPal has no key
 prefix, so the connection environment selects the host — sandbox in `test`, live
 in `live` — and a credential set only validates against the host it belongs to.
 
+## Provider payment options
+
+Provider-specific behaviour is a **per-payment** choice, never deployment
+configuration. `POST /v1/payments` (and `POST /v1/payments/test`) accept an
+`options` object with exactly one provider namespace:
+
+```json
+{
+  "amount": 20000,
+  "currency": "USD",
+  "customer": { "email": "customer@example.com" },
+  "callback_url": "https://store.example/return",
+  "options": {
+    "stripe": {
+      "merchant_of_record": "standard",
+      "product_name": "Pro plan",
+      "product_description": "Annual subscription",
+      "product_tax_code": "txcd_10000000",
+      "customer_email": "customer@example.com",
+      "success_url": "https://store.example/paid",
+      "cancel_url": "https://store.example/cancelled",
+      "submit_type": "pay",
+      "locale": "en",
+      "billing_address_collection": "required",
+      "allow_promotion_codes": true,
+      "setup_future_usage": "off_session",
+      "payment_intent_metadata": { "order_id": "1042" }
+    }
+  }
+}
+```
+
+Rules, enforced before any provider call:
+
+- One namespace only. Two is `provider_options_conflict`; options for a provider
+  other than the routed one is `provider_options_not_supported`.
+- Supplying options pins `adapter` to that provider (when `adapter` is omitted or
+  `auto`) and rejects `fallback: true`, because a fallback provider would
+  silently drop them.
+- `options.stripe.merchant_of_record` is `standard` (default) or `managed`.
+  Managed sends `managed_payments[enabled]=true` and **requires**
+  `product_tax_code`; standard never sends that parameter and does not require a
+  code. No tax code is invented on the caller's behalf, and whether the connected
+  account is eligible is Stripe's answer to give.
+- Dashboard test transactions (`POST /v1/payments/test`) are always standard
+  Payments: `managed` there is `provider_options_not_available_for_test`. Test
+  mode is set by the route, never by the request body, and a generated product
+  name (`Test payment {reference}`) is used when none is supplied.
+- `options.paypal` maps to Orders v2 `purchase_units[].description`,
+  `invoice_id`, `custom_id`, `payer.email_address` and `application_context`
+  (`brand_name`, `locale`, `landing_page`, `user_action`,
+  `shipping_preference`). Orders are always CAPTURE-intent, as before.
+- Paystack, Flutterwave and Monnify accept no options.
+- Options are part of the idempotency request hash, so the same key with a
+  different provider configuration is refused rather than replayed.
+- `GET /v1/providers` and connection responses expose `supported_options`, the
+  list of option fields each provider accepts.
+
 Stripe and PayPal are hosted-checkout providers. `POST /v1/payments` returns the
 provider's `authorization_url`; the customer pays there. Stripe confirms through
 its signed webhook. PayPal orders are captured by PayConnect (on the approval

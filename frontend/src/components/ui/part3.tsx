@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { cn, PAYMENT_STATUS_META, type PaymentStatus } from "@/lib/utils";
 import { PROVIDER_META, type ProviderKind } from "@/lib/types";
 import { Button, Skeleton } from "./primitives";
+import { ProviderLogo } from "./provider-logo";
 
 /* ----------------------------- payment status badge -------------------------- */
 
@@ -32,15 +33,7 @@ export function ProviderBadge({
   const meta = PROVIDER_META[provider];
   return (
     <span className="inline-flex items-center gap-2">
-      <span
-        className={cn(
-          "inline-flex items-center justify-center rounded-md font-semibold",
-          meta.accent,
-          size === "sm" ? "size-5 text-[9px]" : "size-6 text-[10px]"
-        )}
-      >
-        {meta.initials}
-      </span>
+      <ProviderLogo provider={provider} size={size === "sm" ? "xs" : "sm"} />
       <span className="text-[13px] font-medium text-slate-700">{meta.name}</span>
     </span>
   );

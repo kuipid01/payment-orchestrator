@@ -81,18 +81,16 @@ type MailConfig struct {
 
 // ProviderConfig holds provider base URLs (overridable for tests/sandboxes).
 type ProviderConfig struct {
-	PaystackBaseURL       string
-	FlutterwaveBaseURL    string
-	MonnifyTestBaseURL    string
-	MonnifyLiveBaseURL    string
-	StripeBaseURL         string
-	PayPalTestBaseURL     string
-	PayPalLiveBaseURL     string
-	WebhookBaseURL        string
-	RequestTimeout        time.Duration
-	MaxRetries            int
-	StripeManagedPayments bool
-	StripeDefaultTaxCode  string
+	PaystackBaseURL    string
+	FlutterwaveBaseURL string
+	MonnifyTestBaseURL string
+	MonnifyLiveBaseURL string
+	StripeBaseURL      string
+	PayPalTestBaseURL  string
+	PayPalLiveBaseURL  string
+	WebhookBaseURL     string
+	RequestTimeout     time.Duration
+	MaxRetries         int
 }
 
 // LimitConfig holds rate limit budgets per endpoint category, plus the

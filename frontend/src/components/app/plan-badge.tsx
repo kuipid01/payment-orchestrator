@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { Badge, Skeleton } from "@/components/ui";
@@ -49,22 +48,21 @@ function describe(view: SubscriptionPlan): { title: string; detail: string; cta:
   }
 }
 
-export function PlanBadge({ className, 
-  setSideBarOpen,
-  sideBarOpen }: { className?: string  , 
-  setSideBarOpen?: React.Dispatch<React.SetStateAction<boolean>>
-  sideBarOpen?:boolean}) {
+export function PlanBadge({ className, collapsed = false }: { className?: string; collapsed?: boolean }) {
   const { data, loading, error } = useAsync(getBillingPlan, [], ["billing", "plan"]);
 
   if (loading) {
     return (
       <div className={className}>
-        <Skeleton className="h-9 w-full" />
+        <Skeleton className={collapsed ? "size-10 rounded-full" : "h-9 w-full"} />
       </div>
     );
   }
 
   if (error || !data) {
+    // Collapsed to an icon rail there is no room to explain a failure; leave
+    // the slot empty rather than show a paragraph in a 72px column.
+    if (collapsed) return null;
     return (
       <div className={className}>
         <p className="text-[12px] text-slate-400">
@@ -83,6 +81,24 @@ export function PlanBadge({ className,
   // The trial is Pro: showing "Free" next to it would understate what the
   // merchant currently has.
   const label = data.status === "trialing" ? "Pro" : data.plan.name;
+
+  if (collapsed) {
+    return (
+      <Link
+        href="/settings/billing"
+        title={`${title} — ${detail}`}
+        aria-label={`${title} plan. ${detail}. ${cta}`}
+        className={
+          className ??
+          `flex size-10 items-center justify-center rounded-full border bg-white transition-colors hover:border-brand-300 ${
+            paid ? "border-brand-200 text-brand-700" : "border-slate-200 text-slate-500"
+          }`
+        }
+      >
+        <Sparkles className="size-4" />
+      </Link>
+    );
+  }
 
   return (
     <Link

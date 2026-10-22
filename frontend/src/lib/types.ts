@@ -80,6 +80,12 @@ export interface ProviderConnection {
   webhookSecretMasked: string;
   webhookSecretSet: boolean;
   webhookLastEventAt: string | null;
+  /**
+   * The payment.options fields this provider accepts, straight from the API.
+   * The test-transaction form renders its inputs from this list, so a provider's
+   * options are never hard-coded in the dashboard.
+   */
+  supportedOptions: string[];
 }
 
 /**

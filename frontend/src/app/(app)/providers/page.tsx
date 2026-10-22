@@ -3,7 +3,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   Activity,
   ArrowRight,
@@ -28,6 +27,7 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  ProviderLogo,
 } from "@/components/ui";
 import { EnvironmentBadge } from "@/components/ui/part3";
 import { useAsync } from "@/hooks/use-async";
@@ -40,15 +40,6 @@ import {
 
 type Environment = "test" | "live";
 type Filter = "all" | "connected" | "error" | "disconnected";
-
-const PROVIDER_LOGOS: Partial<
-  Record<ProviderConnection["provider"], string>
-> = {
-  paystack: "/providers/paystack.png",
-  flutterwave: "/providers/flutterwave.png",
-  monnify: "https://developers.monnify.com/png/monnify-logo.png",
-  moniepoint: "/providers/moniepoint.png",
-};
 
 function StatusPill({
   status,
@@ -549,22 +540,7 @@ export default function ProvidersPage() {
                   className="flex min-w-0 flex-col overflow-hidden border-slate-200/80 p-4 shadow-sm shadow-slate-900/[0.02] transition-shadow hover:shadow-md hover:shadow-slate-900/[0.04] sm:p-5"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-2">
-                      {PROVIDER_LOGOS[kind] ? (
-                        <Image
-                          src={PROVIDER_LOGOS[kind]}
-                          alt={`${meta.name} logo`}
-                          width={48}
-                          height={48}
-                          unoptimized={kind === "monnify"}
-                          className="size-full object-contain"
-                        />
-                      ) : (
-                        <span className={`flex size-full items-center justify-center rounded-lg text-xs font-bold ${meta?.accent}`}>
-                          {meta.initials}
-                        </span>
-                      )}
-                    </div>
+                    <ProviderLogo provider={kind} size="lg" />
 
                     <div className="min-w-0 flex-1 pt-0.5">
                       <h2 className="truncate text-[15px] font-semibold text-slate-900">

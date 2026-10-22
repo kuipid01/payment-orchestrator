@@ -5,6 +5,9 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/lmittmann/tint"
 )
 
 // NewLogger builds the application logger with the environment's default level:
@@ -17,13 +20,18 @@ func NewLogger(environment, service string) *slog.Logger {
 // NewLoggerWithLevel builds the logger with an explicit minimum level. An empty
 // or unrecognised level falls back to the environment default.
 func NewLoggerWithLevel(environment, service, level string) *slog.Logger {
-	opts := &slog.HandlerOptions{Level: ParseLevel(level, environment)}
+	minLevel := ParseLevel(level, environment)
+	opts := &slog.HandlerOptions{Level: minLevel}
 
 	var handler slog.Handler
 	if environment == "production" {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	} else {
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		// Use tint for a gorgeous, colorized, readable local terminal output
+		handler = tint.NewHandler(os.Stdout, &tint.Options{
+			Level:      minLevel,
+			TimeFormat: time.Kitchen, // Keeps timestamps short (e.g., 12:11PM)
+		})
 	}
 	return slog.New(handler).With("service", service, "env", environment)
 }

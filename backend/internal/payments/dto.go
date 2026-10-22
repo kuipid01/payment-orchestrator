@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/kuipid01/payconnect/internal/providers"
 )
 
 // CreateRequest is the public payload for POST /v1/payments.
@@ -19,6 +21,11 @@ type CreateRequest struct {
 	Customer    CustomerInput  `json:"customer"`
 	Email       string         `json:"email,omitempty"`
 	Metadata    map[string]any `json:"metadata"`
+	// Options carries provider-specific settings, namespaced per provider
+	// (options.stripe, options.paypal). Supplying options pins the adapter to
+	// that provider, disables fallback, and is validated before any provider
+	// call — the common fields above stay provider-neutral.
+	Options providers.PaymentOptions `json:"options,omitempty"`
 }
 
 // CustomerInput is the payer block.

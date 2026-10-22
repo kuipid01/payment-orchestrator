@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -26,12 +27,14 @@ func (a *Adapter) TestCredentials(ctx context.Context, creds providers.Credentia
 // The reference is the idempotency key, so a retried create cannot charge twice.
 func (a *Adapter) CreatePayment(ctx context.Context, creds providers.Credentials,
 	req providers.PaymentRequest) (*providers.PaymentResult, error) {
-	successURL, cancelURL, err := checkoutURLs(req.CallbackURL)
+	successURL, cancelURL, err := checkoutURLs(req)
 	if err != nil {
 		return nil, err
 	}
-	form, _ := checkoutForm(req, successURL, cancelURL, a.cfg.ManagedPayments,
-		a.cfg.DefaultTaxCode)
+	form, err := checkoutForm(req, successURL, cancelURL)
+	if err != nil {
+		return nil, err
+	}
 
 	result, err := a.call(ctx, http.MethodPost, "/v1/checkout/sessions", form,
 		"checkout:"+req.Reference, creds, false)
@@ -163,18 +166,43 @@ func (a *Adapter) retrieveSession(ctx context.Context, creds providers.Credentia
 }
 
 // checkoutForm builds the Checkout Session creation payload.
+//
+// Every provider-specific value comes from the caller's validated options. The
+// form is assembled field by field: nothing a caller supplies is copied into the
+// request wholesale, and standard Payments (the default) never receives Managed
+// Payments configuration.
 func checkoutForm(
 	req providers.PaymentRequest,
 	successURL, cancelURL string,
-	managedPayments bool,
-	defaultTaxCode string,
 ) (url.Values, error) {
-	name := strings.TrimSpace(req.Description)
-	if name == "" {
-		name = "Test payment"
-		if strings.TrimSpace(req.Reference) != "" {
-			name += " " + req.Reference
+	opts := req.Options.Stripe
+	if opts == nil {
+		opts = &providers.StripeOptions{}
+	}
+	slog.Debug("processing stripe checkout options",
+		"managed", opts.Managed(),
+		"product_name", opts.ProductName,
+		"product_tax_code", opts.ProductTaxCode,
+	)
+	if opts.Managed() {
+		// Defence in depth: the service validates options before routing, and a
+		// test transaction must never switch merchant-of-record model.
+		if req.Test {
+			return nil, apperrors.Validation("provider_options_not_available_for_test",
+				"merchant_of_record \"managed\" is not available for dashboard test transactions; use \"standard\".")
 		}
+		if strings.TrimSpace(opts.ProductTaxCode) == "" {
+			return nil, apperrors.Validation("provider_options_invalid",
+				"options.stripe.product_tax_code is required when merchant_of_record is \"managed\".")
+		}
+	}
+
+	name := strings.TrimSpace(opts.ProductName)
+	if name == "" {
+		name = strings.TrimSpace(req.Description)
+	}
+	if name == "" {
+		name = generatedProductName(req)
 	}
 
 	form := url.Values{}
@@ -189,22 +217,41 @@ func checkoutForm(
 		strconv.FormatInt(req.AmountMinor, 10))
 	form.Set("line_items[0][price_data][product_data][name]", name)
 
-	if managedPayments {
-		taxCode := strings.TrimSpace(defaultTaxCode)
-		if taxCode == "" {
-			return nil, errors.New(
-				"Stripe Managed Payments requires a configured product tax code",
-			)
-		}
-
-		form.Set(
-			"line_items[0][price_data][product_data][tax_code]",
-			taxCode,
-		)
+	if description := strings.TrimSpace(opts.ProductDescription); description != "" {
+		form.Set("line_items[0][price_data][product_data][description]", description)
+	}
+	if taxCode := strings.TrimSpace(opts.ProductTaxCode); taxCode != "" {
+		form.Set("line_items[0][price_data][product_data][tax_code]", taxCode)
+	}
+	// Explicitly pass true or false so Stripe doesn't fall back to your account default
+	if opts.Managed() {
+		form.Set("managed_payments[enabled]", "true")
+	} else {
+		form.Set("managed_payments[enabled]", "false")
 	}
 
-	if req.Email != "" {
-		form.Set("customer_email", req.Email)
+	email := strings.TrimSpace(opts.CustomerEmail)
+	if email == "" {
+		email = strings.TrimSpace(req.Email)
+	}
+	if email != "" {
+		form.Set("customer_email", email)
+	}
+
+	if opts.SubmitType != "" {
+		form.Set("submit_type", opts.SubmitType)
+	}
+	if opts.Locale != "" {
+		form.Set("locale", opts.Locale)
+	}
+	if opts.BillingAddressCollection != "" {
+		form.Set("billing_address_collection", opts.BillingAddressCollection)
+	}
+	if opts.AllowPromotionCodes != nil {
+		form.Set("allow_promotion_codes", strconv.FormatBool(*opts.AllowPromotionCodes))
+	}
+	if opts.SetupFutureUsage != "" && opts.SetupFutureUsage != "none" {
+		form.Set("payment_intent_data[setup_future_usage]", opts.SetupFutureUsage)
 	}
 
 	form.Set("metadata[reference]", req.Reference)
@@ -216,19 +263,51 @@ func checkoutForm(
 		}
 		form.Set("metadata["+key+"]", metadataString(value))
 	}
+	for key, value := range opts.PaymentIntentMetadata {
+		if key == "" || key == "reference" {
+			continue
+		}
+		form.Set("payment_intent_data[metadata]["+key+"]", value)
+	}
 
 	return form, nil
 }
 
-// checkoutURLs builds the hosted page's return URLs. Stripe requires both.
-func checkoutURLs(callbackURL string) (string, string, error) {
-	callbackURL = strings.TrimSpace(callbackURL)
-	if callbackURL == "" {
+// generatedProductName names the inline line item when the caller supplied no
+// product information. A test transaction is labelled as one so a sandbox charge
+// is never mistaken for a real product in the Stripe dashboard.
+func generatedProductName(req providers.PaymentRequest) string {
+	reference := strings.TrimSpace(req.Reference)
+	switch {
+	case req.Test && reference != "":
+		return "Test payment " + reference
+	case req.Test:
+		return "Test payment"
+	case reference != "":
+		return "Payment " + reference
+	default:
+		return "Payment"
+	}
+}
+
+// checkoutURLs builds the hosted page's return URLs. Stripe requires both, and
+// an explicit option overrides the callback-derived destination.
+func checkoutURLs(req providers.PaymentRequest) (string, string, error) {
+	callbackURL := strings.TrimSpace(req.CallbackURL)
+	success, cancel := "", ""
+	if opts := req.Options.Stripe; opts != nil {
+		success, cancel = opts.SuccessURL, opts.CancelURL
+	}
+	if (success == "" || cancel == "") && callbackURL == "" {
 		return "", "", apperrors.Validation("checkout_callback_required",
 			"A callback_url is required for Stripe Checkout so the customer can return to the store.")
 	}
-	success := appendQuery(callbackURL, "session_id={CHECKOUT_SESSION_ID}")
-	cancel := appendQuery(callbackURL, "payment=cancelled")
+	if success == "" {
+		success = appendQuery(callbackURL, "session_id={CHECKOUT_SESSION_ID}")
+	}
+	if cancel == "" {
+		cancel = appendQuery(callbackURL, "payment=cancelled")
+	}
 	return success, cancel, nil
 }
 

@@ -42,6 +42,7 @@ func (h *Handler) Supported(c *fiber.Ctx) error {
 			"webhook_secret_self_assigned": descriptor.WebhookSecretSelfAssigned,
 			"webhook_signature_header":     descriptor.WebhookSignatureHeader,
 			"webhook_dashboard_path":       descriptor.WebhookDashboardPath,
+			"supported_options":            descriptor.SupportedOptions,
 		})
 	}
 	return h.responder.Success(c, out)

@@ -106,6 +106,10 @@ type CreateInput struct {
 	DeveloperAccessID string
 	Request           CreateRequest
 	IdempotencyKey    string
+	// Test marks a dashboard-initiated sandbox charge. It is set only by the
+	// authenticated test route, never by a caller-supplied field, so provider
+	// adapters can apply a test-only policy to trusted context.
+	Test bool
 	// RequestID joins every line this flow logs to the request log.
 	RequestID string
 }
@@ -268,7 +272,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Response, error)
 		"developer_access_id", in.DeveloperAccessID, "application_id", in.ApplicationID,
 		"customer_id", customerIDValue(payment.CustomerID))
 
-	if err := s.execute(ctx, payment, providersToTry, req, in.Environment); err != nil {
+	if err := s.execute(ctx, payment, providersToTry, req, in.Environment, in.Test); err != nil {
 		s.log("payment create finished with error", "request_id", in.RequestID, "payment_id", payment.ID,
 			"status", payment.Status, "failure_code", payment.FailureCode, "reason", err.Error())
 		// The payment row survives a provider failure: the caller can verify it.
@@ -283,7 +287,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Response, error)
 }
 
 // execute calls the provider chain, applying the fallback rules.
-func (s *Service) execute(ctx context.Context, payment *Payment, chain []constants.Provider, req CreateRequest, environment string) error {
+func (s *Service) execute(ctx context.Context, payment *Payment, chain []constants.Provider, req CreateRequest, environment string, test bool) error {
 	var lastErr error
 	for index, provider := range chain {
 		credentials, err := s.Providers.CredentialsFor(payment.MerchantID, environment, provider)
@@ -313,6 +317,8 @@ func (s *Service) execute(ctx context.Context, payment *Payment, chain []constan
 			Description: req.Description,
 			CallbackURL: req.CallbackURL,
 			Metadata:    req.Metadata,
+			Options:     req.Options,
+			Test:        test,
 		})
 		if err != nil {
 			lastErr = err
@@ -424,6 +430,7 @@ func (s *Service) CreateTest(ctx context.Context, in TestCreateInput) (*Response
 		MerchantID:  in.MerchantID,
 		Environment: environment,
 		Request:     req,
+		Test:        true,
 		RequestID:   in.RequestID,
 	})
 }
@@ -715,6 +722,33 @@ func normalizeCreate(in CreateInput) (CreateRequest, int64, string, string, erro
 	}
 	if req.Customer.Email == "" {
 		return req, 0, "", "", apperrors.Validation(apperrors.CodeValidationError, "customer.email is required.")
+	}
+	// Provider options are validated here, before an idempotency key is reserved
+	// or a payment row exists: an invalid option must not leave a half-created
+	// payment behind or burn the caller's idempotency key.
+	if !req.Options.IsZero() {
+		// Structural validation first: it also rejects an options payload that
+		// named a namespace or field PayConnect does not support, which strict
+		// decoding recorded instead of dropping.
+		if err := req.Options.Validate(); err != nil {
+			return req, 0, "", "", err
+		}
+		if req.Fallback {
+			return req, 0, "", "", apperrors.Validation("provider_options_not_supported",
+				"fallback cannot be combined with provider options: a fallback provider would silently drop them.")
+		}
+		supplied := req.Options.Provider()
+		requested := strings.TrimSpace(req.Adapter)
+		if requested == "" || strings.EqualFold(requested, constants.ProviderAuto.String()) {
+			// The namespace IS the routing decision: options.stripe means Stripe.
+			req.Adapter = supplied.String()
+		} else if !strings.EqualFold(requested, supplied.String()) {
+			return req, 0, "", "", apperrors.Validation("provider_options_conflict",
+				"options were supplied for "+supplied.String()+" but adapter is "+requested+".")
+		}
+		if err := req.Options.ValidateFor(constants.Provider(strings.ToLower(req.Adapter)), in.Test); err != nil {
+			return req, 0, "", "", err
+		}
 	}
 	return req, amount, currency, reference, nil
 }
@@ -1076,6 +1110,9 @@ func replayResponse(record *IdempotencyRecord) *Response {
 }
 
 func hashRequest(amount int64, currency, reference string, req CreateRequest) string {
+	// The provider options are part of the request identity: replaying a
+	// different Checkout configuration under the same idempotency key must be
+	// refused, not silently served from the earlier payment.
 	canonical := map[string]any{
 		"amount":    amount,
 		"currency":  currency,
@@ -1084,6 +1121,7 @@ func hashRequest(amount int64, currency, reference string, req CreateRequest) st
 		"fallback":  req.Fallback,
 		"customer":  req.Customer,
 		"metadata":  req.Metadata,
+		"options":   req.Options,
 	}
 	encoded, _ := json.Marshal(canonical)
 	sum := sha256.Sum256(encoded)

@@ -12,5 +12,6 @@ export {
   DataTable,
   EmptyState,
 } from "./part3";
+export { ProviderLogo } from "./provider-logo";
 export { Toaster, toast } from "./toaster";
 export { Logo } from "./logo";

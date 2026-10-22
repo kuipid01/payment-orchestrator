@@ -470,6 +470,48 @@ export function getPayment(id: string): Promise<Payment> {
   return request<PaymentResponse>(`/payments/${encodeURIComponent(id)}`).then(toPayment);
 }
 
+/**
+ * Stripe-specific payment options. Only the fields PayConnect supports are
+ * accepted: the API validates each one and translates it into the Checkout
+ * Session, so a caller never supplies raw Stripe parameters.
+ */
+export interface StripePaymentOptions {
+  /** "standard" (default) keeps the merchant as merchant of record. */
+  merchant_of_record?: "standard" | "managed";
+  product_name?: string;
+  product_description?: string;
+  /** Required by Stripe when merchant_of_record is "managed". */
+  product_tax_code?: string;
+  customer_email?: string;
+  success_url?: string;
+  cancel_url?: string;
+  submit_type?: "pay" | "book" | "donate";
+  locale?: string;
+  billing_address_collection?: "auto" | "required";
+  allow_promotion_codes?: boolean;
+  setup_future_usage?: "none" | "off_session" | "on_session";
+  payment_intent_metadata?: Record<string, string>;
+}
+
+/** PayPal-specific order options supported by the Orders v2 adapter. */
+export interface PayPalPaymentOptions {
+  description?: string;
+  invoice_id?: string;
+  custom_id?: string;
+  payer_email?: string;
+  brand_name?: string;
+  locale?: string;
+  landing_page?: "LOGIN" | "GUEST_CHECKOUT" | "NO_PREFERENCE";
+  user_action?: "CONTINUE" | "PAY_NOW";
+  shipping_preference?: "GET_FROM_FILE" | "NO_SHIPPING" | "SET_PROVIDED_ADDRESS";
+}
+
+/** The namespaced provider options accepted by POST /v1/payments. */
+export interface PaymentOptionsInput {
+  stripe?: StripePaymentOptions;
+  paypal?: PayPalPaymentOptions;
+}
+
 /** The values a merchant supplies for a dashboard-initiated test charge. */
 export interface TestTransactionInput {
   /** Charge amount in minor units (kobo/cents). */
@@ -484,6 +526,11 @@ export interface TestTransactionInput {
    * user back.
    */
   callbackUrl?: string;
+  /**
+   * Provider-specific settings. A test charge always uses standard payments, so
+   * merchant_of_record "managed" is rejected by the API for this route.
+   */
+  options?: PaymentOptionsInput;
 }
 
 /**
@@ -505,6 +552,7 @@ export function createTestTransaction(connectionId: string, input: TestTransacti
       description: input.description ?? "",
       callback_url: input.callbackUrl ?? "",
       customer: { email: input.email },
+      ...(input.options ? { options: input.options } : {}),
     },
   }).then(toPayment);
 }
@@ -513,11 +561,17 @@ export function createTestTransaction(connectionId: string, input: TestTransacti
 
 export function listProviders(): Promise<ProviderConnection[]> {
   return Promise.all([
-    request<{ provider: ProviderConnection["provider"]; default_currency: string }[]>("/providers"),
+    request<
+      {
+        provider: ProviderConnection["provider"];
+        default_currency: string;
+        supported_options?: string[];
+      }[]
+    >("/providers"),
     request<ProviderConnectionResponse[]>("/providers/connections"),
   ]).then(([supported, rawConnections]) => {
     const connections = rawConnections.map(toProviderConnection);
-    return supported.flatMap(({ provider, default_currency }) => {
+    return supported.flatMap(({ provider, default_currency, supported_options }) => {
       const providerConnections = connections.filter((connection) => connection.provider === provider);
       return (["test", "live"] as const).map((environment) =>
         providerConnections.find((connection) => connection.environment === environment) ?? {
@@ -541,6 +595,7 @@ export function listProviders(): Promise<ProviderConnection[]> {
           webhookSecretMasked: "",
           webhookSecretSet: false,
           webhookLastEventAt: null,
+          supportedOptions: supported_options ?? [],
         },
       );
     });
@@ -608,9 +663,9 @@ interface ProviderConnectionResponse {
   webhook_secret_label?: string;
   webhook_signature_header?: string;
   webhook_dashboard_path?: string;
-  webhook_secret_masked?: string;
-  webhook_secret_set?: boolean;
+  webhook_secret_masked?: string;  webhook_secret_set?: boolean;
   webhook_last_event_at?: string | null;
+  supported_options?: string[];
 }
 
 function toProviderConnection(connection: ProviderConnectionResponse): ProviderConnection {
@@ -635,6 +690,7 @@ function toProviderConnection(connection: ProviderConnectionResponse): ProviderC
     webhookSecretMasked: connection.webhook_secret_masked ?? "",
     webhookSecretSet: connection.webhook_secret_set ?? false,
     webhookLastEventAt: connection.webhook_last_event_at ?? null,
+    supportedOptions: connection.supported_options ?? [],
   };
 }
 

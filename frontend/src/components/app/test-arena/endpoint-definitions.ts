@@ -4,7 +4,8 @@
  * The base URL is always prepended at runtime — nothing here is user-editable.
  */
 
-export type FieldType = "string" | "number" | "email" | "select" | "textarea";
+/** `json` renders a textarea whose contents are parsed into an object field. */
+export type FieldType = "string" | "number" | "email" | "select" | "textarea" | "json";
 
 export interface FieldOption {
   value: string;
@@ -124,6 +125,14 @@ export const ENDPOINTS: EndpointDef[] = [
         label: "Description",
         type: "string",
         placeholder: "Test payment from Test Arena",
+      },
+      {
+        key: "options",
+        label: "Provider options (JSON)",
+        type: "json",
+        placeholder: '{"stripe":{"product_name":"Pro plan"}}',
+        description:
+          'Optional, namespaced provider settings. Supply options.stripe or options.paypal; this pins the adapter to that provider and disables fallback. Invalid or unsupported options are rejected before any provider call.',
       },
     ],
   },
