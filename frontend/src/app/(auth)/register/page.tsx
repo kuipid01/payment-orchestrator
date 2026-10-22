@@ -55,6 +55,11 @@ export default function RegisterPage() {
   const [error, setError] = React.useState("");
   const [googleError, setGoogleError] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    React.useState(false);
+  const [password, setPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [passwordMismatch, setPasswordMismatch] = React.useState(false);
 
   /**
    * Registration through Google is the same call as sign-in: the API creates
@@ -93,11 +98,21 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
 
+    // Both password fields are controlled, so the comparison happens before
+    // anything is sent: a typo would otherwise create an account nobody can
+    // sign in to, and the address would be taken.
+    if (password !== confirmPassword) {
+      setPasswordMismatch(true);
+      setLoading(false);
+      return;
+    }
+
+    setPasswordMismatch(false);
+
     const form = new FormData(e.currentTarget);
 
     const name = String(form.get("name") ?? "").trim();
     const email = String(form.get("email") ?? "").trim();
-    const password = String(form.get("password") ?? "");
     const organizationName = String(
       form.get("organizationName") ?? ""
     ).trim();
@@ -354,9 +369,18 @@ export default function RegisterPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="At least 12 characters"
                     autoComplete="new-password"
+                    value={password}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setPasswordMismatch(false);
+                    }}
                     minLength={12}
                     required
                     disabled={loading}
+                    aria-invalid={passwordMismatch}
+                    aria-describedby={
+                      passwordMismatch ? "password-mismatch" : undefined
+                    }
                     className="h-12 rounded-xl border-slate-200 pl-10 pr-11 text-sm placeholder:text-slate-400 focus-visible:ring-brand-500"
                   />
 
@@ -382,6 +406,79 @@ export default function RegisterPage() {
                   <Check className="size-3.5 shrink-0 text-emerald-600" />
                   Use at least 12 characters.
                 </p>
+              </div>
+
+              {/* Confirm password */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="confirmPassword"
+                  className="text-[13px] font-semibold text-slate-800"
+                >
+                  Confirm password
+                </Label>
+
+                <div className="relative">
+                  <LockKeyhole
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Enter your password again"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value);
+                      setPasswordMismatch(false);
+                    }}
+                    minLength={12}
+                    required
+                    disabled={loading}
+                    aria-invalid={passwordMismatch}
+                    aria-describedby={
+                      passwordMismatch ? "password-mismatch" : undefined
+                    }
+                    className={[
+                      "h-12 rounded-xl pl-10 pr-11 text-sm placeholder:text-slate-400 focus-visible:ring-brand-500",
+                      passwordMismatch
+                        ? "border-red-300 focus-visible:ring-red-500"
+                        : "border-slate-200",
+                    ].join(" ")}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((value) => !value)}
+                    aria-label={
+                      showConfirmPassword
+                        ? "Hide password confirmation"
+                        : "Show password confirmation"
+                    }
+                    aria-pressed={showConfirmPassword}
+                    disabled={loading}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
+                  </button>
+                </div>
+
+                {passwordMismatch && (
+                  <p
+                    id="password-mismatch"
+                    role="alert"
+                    aria-live="polite"
+                    className="text-[11px] leading-5 font-medium text-red-600"
+                  >
+                    Passwords do not match.
+                  </p>
+                )}
               </div>
 
               {/* Organization */}
