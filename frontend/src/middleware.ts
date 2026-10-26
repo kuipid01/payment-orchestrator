@@ -34,9 +34,9 @@ export function middleware(request: NextRequest) {
   const appHost = appUrl.host.toLowerCase();
   const requestHost = request.nextUrl.host.toLowerCase();
 
-  if (requestHost === appHost && request.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", appUrl));
-  }
+  // if (requestHost === appHost && request.nextUrl.pathname === "/") {
+  //   return NextResponse.redirect(new URL("/dashboard", appUrl));
+  // }
 
   const appDomain = appUrl.hostname.split(".").slice(1).join(".");
   const marketingHosts = new Set([appDomain, `www.${appDomain}`]);
