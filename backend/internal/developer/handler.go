@@ -159,8 +159,8 @@ func (h *Handler) setSessionCookies(c *fiber.Ctx, session *Session) {
 			Path:     "/",
 			MaxAge:   maxAge,
 			HTTPOnly: true,
-			Secure:   c.Protocol() == "https",
-			SameSite: fiber.CookieSameSiteLaxMode,
+			Secure:   c.Protocol() == "https" || c.Get("X-Forwarded-Proto") == "https",
+			SameSite: identity.SessionCookieSameSite(c.Protocol(), c.Get("X-Forwarded-Proto")),
 		})
 	}
 	cookie(identity.CookieAccessToken, session.AccessToken, int(15*time.Minute/time.Second))

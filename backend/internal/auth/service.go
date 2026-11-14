@@ -21,6 +21,7 @@ import (
 	"github.com/kuipid01/payconnect/internal/platform/identity"
 	"github.com/kuipid01/payconnect/internal/platform/mailer"
 	"github.com/kuipid01/payconnect/internal/platform/token"
+	"github.com/kuipid01/payconnect/internal/redis"
 )
 
 // Service implements the auth use cases. It owns no persistence of its own: the
@@ -35,6 +36,9 @@ type Service struct {
 	APIKeys        APIKeyLookup
 	Audit          audit.Recorder
 	Log            *slog.Logger
+	Store          redis.Store
+	OTPSecret      string
+	DevOTP         bool
 }
 
 // NewService builds the auth service.

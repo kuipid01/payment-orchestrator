@@ -138,6 +138,8 @@ const CREDENTIAL_ENDPOINTS = [
   "/auth/login",
   "/auth/register",
   "/auth/google",
+  "/auth/oauth/code",
+  "/auth/oauth/verify",
   "/auth/verify-email",
   "/auth/resend-verification",
   "/auth/forgot-password",

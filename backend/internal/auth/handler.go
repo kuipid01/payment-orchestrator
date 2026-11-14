@@ -108,8 +108,8 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		value = c.Cookies(identity.CookieRefreshToken)
 	}
 	h.svc.Logout(value)
-	c.Cookie(&fiber.Cookie{Name: identity.CookieRefreshToken, Value: "", Path: "/", MaxAge: -1, HTTPOnly: true, Secure: c.Protocol() == "https", SameSite: fiber.CookieSameSiteLaxMode})
-	c.Cookie(&fiber.Cookie{Name: identity.CookieAccessToken, Value: "", Path: "/", MaxAge: -1, HTTPOnly: true, Secure: c.Protocol() == "https", SameSite: fiber.CookieSameSiteLaxMode})
+	c.Cookie(&fiber.Cookie{Name: identity.CookieRefreshToken, Value: "", Path: "/", MaxAge: -1, HTTPOnly: true, Secure: c.Protocol() == "https" || c.Get("X-Forwarded-Proto") == "https", SameSite: identity.SessionCookieSameSite(c.Protocol(), c.Get("X-Forwarded-Proto"))})
+	c.Cookie(&fiber.Cookie{Name: identity.CookieAccessToken, Value: "", Path: "/", MaxAge: -1, HTTPOnly: true, Secure: c.Protocol() == "https" || c.Get("X-Forwarded-Proto") == "https", SameSite: identity.SessionCookieSameSite(c.Protocol(), c.Get("X-Forwarded-Proto"))})
 	return h.responder.SuccessCompat(c, fiber.Map{"revoked": true}, fiber.Map{"ok": true})
 }
 
@@ -186,6 +186,52 @@ func (h *Handler) Google(c *fiber.Ctx) error {
 		return h.responder.Error(c, err)
 	}
 	tokens, user, err := h.svc.LoginWithGoogle(c.UserContext(), req.Credential)
+	if err != nil {
+		return h.responder.Error(c, err)
+	}
+	h.setSessionCookies(c, tokens)
+	return h.sessionResponse(c, tokens, user)
+}
+
+// RequestOAuthCode handles POST /v1/auth/oauth/code. BizUp calls the popup with
+// the signed-in user's email; PayConnect sends a code only when that account
+// already exists, so the popup can never be used to register.
+func (h *Handler) RequestOAuthCode(c *fiber.Ctx) error {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := apihttp.Body(c, &req); err != nil {
+		return h.responder.Error(c, err)
+	}
+	masked, devCode, err := h.svc.RequestOAuthCode(c.UserContext(), req.Email)
+	if err != nil {
+		return h.responder.Error(c, err)
+	}
+	body := fiber.Map{
+		"email_masked": masked,
+		"expires_in":   600,
+	}
+	if devCode != "" {
+		// Development only: the code is returned so the popup can show it when
+		// no transactional email provider is available. Configuration validation
+		// refuses OTP_DEV_MODE in production.
+		body["dev_code"] = devCode
+	}
+	return h.responder.Success(c, body)
+}
+
+// VerifyOAuthCode handles POST /v1/auth/oauth/verify. A valid code creates a
+// normal PayConnect session, which the popup then uses to create the BizUp
+// application and API key.
+func (h *Handler) VerifyOAuthCode(c *fiber.Ctx) error {
+	var req struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	if err := apihttp.Body(c, &req); err != nil {
+		return h.responder.Error(c, err)
+	}
+	tokens, user, err := h.svc.VerifyOAuthCode(c.UserContext(), req.Email, req.Code)
 	if err != nil {
 		return h.responder.Error(c, err)
 	}
@@ -326,8 +372,8 @@ func (h *Handler) setSessionCookies(c *fiber.Ctx, tokens *Tokens) {
 			Path:     "/",
 			MaxAge:   maxAge,
 			HTTPOnly: true,
-			Secure:   c.Protocol() == "https",
-			SameSite: fiber.CookieSameSiteLaxMode,
+			Secure:   c.Protocol() == "https" || c.Get("X-Forwarded-Proto") == "https",
+			SameSite: identity.SessionCookieSameSite(c.Protocol(), c.Get("X-Forwarded-Proto")),
 		})
 	}
 
@@ -339,8 +385,8 @@ func clearSessionCookies(c *fiber.Ctx) {
 	for _, name := range []string{identity.CookieRefreshToken, identity.CookieAccessToken} {
 		c.Cookie(&fiber.Cookie{
 			Name: name, Value: "", Path: "/", MaxAge: -1,
-			HTTPOnly: true, Secure: c.Protocol() == "https",
-			SameSite: fiber.CookieSameSiteLaxMode,
+			HTTPOnly: true, Secure: c.Protocol() == "https" || c.Get("X-Forwarded-Proto") == "https",
+			SameSite: identity.SessionCookieSameSite(c.Protocol(), c.Get("X-Forwarded-Proto")),
 		})
 	}
 }

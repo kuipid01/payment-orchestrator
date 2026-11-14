@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/kuipid01/payconnect/internal/constants"
+	apperrors "github.com/kuipid01/payconnect/internal/errors"
 	apihttp "github.com/kuipid01/payconnect/internal/http"
 	"github.com/kuipid01/payconnect/internal/identityhelp"
 	"github.com/kuipid01/payconnect/internal/platform/identity"
@@ -48,6 +49,9 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 // Update handles PATCH /v1/routing: it changes the environment default provider.
 func (h *Handler) Update(c *fiber.Ctx) error {
 	principal := identity.From(c)
+	if principal.IsAPIKey() && principal.KeyType != string(constants.APIKeySecret) {
+		return h.responder.Error(c, apperrors.PermissionDenied("A secret API key is required to change the default provider."))
+	}
 	var req struct {
 		Environment     string `json:"environment"`
 		DefaultProvider string `json:"default_provider"`

@@ -31,12 +31,39 @@ func (h *Handler) Supported(c *fiber.Ctx) error {
 	for _, provider := range connected {
 		connectedSet[provider.String()] = true
 	}
+	// Callers that hold only an application key cannot read
+	// /providers/connections (that route is session-only), but they still need
+	// to know whether a provider is live-capable. Expose only the environment
+	// booleans here; credentials and connection ids stay on the session route.
+	type environmentFlags struct{ live, test bool }
+	environments := make(map[string]environmentFlags)
+	connections, err := h.svc.List(principal.MerchantID)
+	if err != nil {
+		return h.responder.Error(c, err)
+	}
+	for i := range connections {
+		connection := &connections[i]
+		if !connection.IsConnected() {
+			continue
+		}
+		flags := environments[connection.Provider]
+		switch connection.Environment {
+		case constants.EnvironmentLive:
+			flags.live = true
+		case constants.EnvironmentTest:
+			flags.test = true
+		}
+		environments[connection.Provider] = flags
+	}
 	out := make([]fiber.Map, 0)
 	for _, descriptor := range Descriptors() {
+		flags := environments[descriptor.Provider]
 		out = append(out, fiber.Map{
 			"provider":                     descriptor.Provider,
 			"default_currency":             descriptor.Default,
 			"connected":                    connectedSet[descriptor.Provider],
+			"live_connected":               flags.live,
+			"test_connected":               flags.test,
 			"webhook_secret_required":      descriptor.WebhookSecretRequired,
 			"webhook_secret_label":         descriptor.WebhookSecretLabel,
 			"webhook_secret_self_assigned": descriptor.WebhookSecretSelfAssigned,

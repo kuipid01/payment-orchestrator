@@ -186,6 +186,12 @@ func Build(cfg config.Config, db *database.DB, store redis.Store, logger *slog.L
 	authService.FrontendURL = cfg.App.FrontendURL
 	authService.RefreshTTL = cfg.Security.JWTRefreshTTL
 	authService.APIKeys = apiKeyService
+	authService.Store = store
+	authService.OTPSecret = cfg.Security.JWTSecret
+	authService.DevOTP = cfg.Mail.DevOTP
+	if cfg.Mail.DevOTP {
+		logger.Warn("OTP_DEV_MODE is on; sign-in codes are returned to the client instead of emailed")
+	}
 	if cfg.Mail.BrevoAPIKey != "" {
 		brevo := mailer.NewBrevo(cfg.Mail.BrevoAPIKey, cfg.Mail.BrevoSenderEmail, cfg.Mail.BrevoSenderName)
 		authService.Mailer = brevo

@@ -334,6 +334,17 @@ func (r *Repository) VerifyEmail(userID, tokenHash string, now time.Time) error 
 	return nil
 }
 
+// MarkEmailVerified records proof of inbox control without requiring a token.
+// The OTP flow uses this after a valid code: the code is itself the proof, and
+// the account should not stay blocked behind an older verification link.
+func (r *Repository) MarkEmailVerified(userID string) error {
+	return r.DB.Model(&User{}).Where("id = ?", userID).Updates(map[string]any{
+		"email_verified":                true,
+		"email_verification_token_hash": nil,
+		"email_verification_expires_at": nil,
+	}).Error
+}
+
 // UserByVerificationToken resolves a pending verification token.
 func (r *Repository) UserByVerificationToken(tokenHash string, now time.Time) (*User, error) {
 	var u User

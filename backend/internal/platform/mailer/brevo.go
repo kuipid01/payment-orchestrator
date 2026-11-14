@@ -18,6 +18,7 @@ type VerificationSender interface {
 	SendVerification(ctx context.Context, email, name, link string) error
 	SendPasswordReset(ctx context.Context, email, name, link string) error
 	SendDeveloperInvitation(ctx context.Context, email, name, link string) error
+	SendLoginCode(ctx context.Context, email, name, code string) error
 }
 
 // DeveloperInvitation carries the optional context shown in the invitation
@@ -61,6 +62,16 @@ func (b *Brevo) SendVerification(ctx context.Context, email, name, link string) 
 
 func (b *Brevo) SendPasswordReset(ctx context.Context, email, name, link string) error {
 	m, err := renderPasswordReset(name, link)
+	if err != nil {
+		return err
+	}
+	return b.send(ctx, email, name, m)
+}
+
+// SendLoginCode delivers the short-lived code used by the BizUp authorization
+// popup. The code is shown in the email only; it is never put in a link.
+func (b *Brevo) SendLoginCode(ctx context.Context, email, name, code string) error {
+	m, err := renderLoginCode(name, code)
 	if err != nil {
 		return err
 	}

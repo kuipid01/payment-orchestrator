@@ -24,7 +24,7 @@ export function AuthBrand({ className }: { className?: string }) {
           PayConnect
         </span>
         <span className="mt-0.5 block text-[11px] font-medium text-slate-500">
-          by Nile
+          by Kuipid
         </span>
       </span>
     </Link>

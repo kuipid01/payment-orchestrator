@@ -77,6 +77,10 @@ type MailConfig struct {
 	BrevoAPIKey      string
 	BrevoSenderEmail string
 	BrevoSenderName  string
+	// DevOTP returns the sign-in code in the API response instead of emailing
+	// it. It is refused in production and exists for local development when no
+	// transactional email provider is configured.
+	DevOTP bool
 }
 
 // ProviderConfig holds provider base URLs (overridable for tests/sandboxes).
@@ -122,11 +126,11 @@ func Load() Config {
 		App: AppConfig{
 			Name:        envOr("APP_NAME", "payconnect-api"),
 			Environment: appEnv,
-			BaseURL:     envOr("API_BASE_URL", "http://localhost:"+envOr("PORT", "8080")),
+			BaseURL:     envOr("API_BASE_URL", "http://localhost:"+envOr("PORT", "9080")),
 			FrontendURL: envOr("FRONTEND_URL", "http://localhost:3000"),
 		},
 		Server: ServerConfig{
-			Port:         envOr("PORT", "8080"),
+			Port:         envOr("PORT", "9080"),
 			ReadTimeout:  envDuration("SERVER_READ_TIMEOUT", 15*time.Second),
 			WriteTimeout: envDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
 			IdleTimeout:  envDuration("SERVER_IDLE_TIMEOUT", 60*time.Second),
@@ -134,7 +138,7 @@ func Load() Config {
 		Database: DatabaseConfig{
 			URL:      os.Getenv("DATABASE_URL"),
 			Host:     envOr("DATABASE_HOST", "localhost"),
-			Port:     envOr("DATABASE_PORT", "5432"),
+			Port:     envOr("DATABASE_PORT", "5434"),
 			User:     envOr("DATABASE_USER", "payconnect"),
 			Password: envOr("DATABASE_PASSWORD", "payconnect"),
 			Name:     envOr("DATABASE_NAME", "payconnect"),
@@ -162,6 +166,7 @@ func Load() Config {
 			BrevoAPIKey:      os.Getenv("BREVO_API_KEY"),
 			BrevoSenderEmail: os.Getenv("BREVO_SENDER_EMAIL"),
 			BrevoSenderName:  envOr("BREVO_SENDER_NAME", "PayConnect"),
+			DevOTP:           envBool("OTP_DEV_MODE", false),
 		},
 		Providers: ProviderConfig{
 			PaystackBaseURL:    envOr("PAYSTACK_BASE_URL", "https://api.paystack.co"),

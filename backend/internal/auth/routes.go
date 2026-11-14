@@ -36,6 +36,10 @@ func RegisterPublicRoutes(v1 fiber.Router, guards PublicGuards, h *Handler) {
 	auth.Post("/register", guards.Strict, h.Register)
 	auth.Post("/login", guards.Strict, h.Login)
 	auth.Post("/google", guards.Strict, h.Google)
+	// The BizUp connection popup authenticates with a one-time email code. There
+	// is no registration endpoint here: an unknown email is refused.
+	auth.Post("/oauth/code", guards.Strict, h.RequestOAuthCode)
+	auth.Post("/oauth/verify", guards.Strict, h.VerifyOAuthCode)
 	auth.Post("/forgot-password", guards.Strict, h.ForgotPassword)
 	auth.Post("/reset-password", guards.Strict, h.ResetPassword)
 	auth.Post("/refresh", h.Refresh)

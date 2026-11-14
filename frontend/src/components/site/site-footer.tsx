@@ -130,10 +130,10 @@ export function SiteFooter() {
           <div className="flex flex-col justify-between gap-3 rounded-2xl bg-slate-50 p-5 sm:flex-row sm:items-end sm:p-6">
             <div>
               <p className="text-xs font-semibold text-slate-800">
-                PayConnect by Nile
+                PayConnect by Kuipid
               </p>
               <p className="mt-1 text-[11px] text-slate-500">
-                © 2026 PayConnect, Inc. All rights reserved.
+                © {new Date().getFullYear()} PayConnect, Inc. All rights reserved.
               </p>
             </div>
             <p className="font-mono text-[10px] text-slate-400">

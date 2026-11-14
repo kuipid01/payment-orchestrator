@@ -28,6 +28,9 @@ func (c Config) Validate() error {
 		problems = append(problems, "API_KEY_PREFIX must not be empty")
 	}
 	if c.IsProduction() {
+		if c.Mail.DevOTP {
+			problems = append(problems, "OTP_DEV_MODE must not be enabled in production")
+		}
 		if len(c.Security.JWTSecret) < 32 {
 			problems = append(problems, "JWT_SECRET must be at least 32 characters in production")
 		}

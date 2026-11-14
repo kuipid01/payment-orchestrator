@@ -66,3 +66,16 @@ func HashPassword(password string) (string, error) {
 func CheckPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
+
+// SessionCookieSameSite returns the SameSite policy for the session cookies.
+//
+// The dashboard can be served from a different site than the API host (a Vercel
+// deployment calls the DuckDNS API directly), and a browser only attaches a
+// cookie to a cross-site request when it is SameSite=None. None is only legal
+// together with Secure, so plain-HTTP local development keeps Lax.
+func SessionCookieSameSite(protocol, forwardedProto string) string {
+	if protocol == "https" || forwardedProto == "https" {
+		return "None"
+	}
+	return "Lax"
+}

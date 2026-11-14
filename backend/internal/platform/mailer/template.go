@@ -107,6 +107,9 @@ type emailData struct {
 	MerchantName string
 	InviterName  string
 	Permissions  []string
+
+	// LoginCode is the short-lived sign-in code for the BizUp handoff.
+	Code string
 }
 
 // message is a fully rendered email.
@@ -238,6 +241,16 @@ const passwordResetSrc = `{{define "content"}}{{template "heading" .}}
 {{template "linkbox" .}}
 {{end}}`
 
+const loginCodeSrc = `{{define "content"}}{{template "heading" .}}
+<p style="__P__">Hello {{.Name}},</p>
+<p style="__P__">{{.Intro}}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;"><tr>
+<td align="center" style="padding:22px 16px;background-color:__GOLD_50__;border:1px solid __GOLD_200__;border-radius:12px;font-family:__MONO__;font-size:34px;font-weight:700;letter-spacing:10px;color:__INK__;">{{.Code}}</td>
+</tr></table>
+<p style="margin:14px 0 0 0;font-family:__SANS__;font-size:13px;line-height:1.5;color:__MUTED__;">This code expires in <strong style="color:__INK__;">{{.Expiry}}</strong>.</p>
+{{template "callout" .}}
+{{end}}`
+
 const invitationSrc = `{{define "content"}}{{template "heading" .}}
 <p style="__P__">Hello {{.Name}},</p>
 <p style="__P__">{{.Intro}}</p>
@@ -278,6 +291,7 @@ var (
 	verificationTmpl  = compile("verification", verificationSrc)
 	passwordResetTmpl = compile("password_reset", passwordResetSrc)
 	invitationTmpl    = compile("developer_invitation", invitationSrc)
+	loginCodeTmpl     = compile("login_code", loginCodeSrc)
 )
 
 func renderHTML(t *template.Template, d emailData) (string, error) {
@@ -375,6 +389,39 @@ If you didn't request this, ignore this email and your current password will kee
 
 PayConnect will never ask for your password or API keys by email.
 `, d.Name, link, d.Expiry)
+	return message{Subject: subject, HTML: h, Text: text}, nil
+}
+
+func renderLoginCode(name, code string) (message, error) {
+	const subject = "Your PayConnect sign-in code"
+	d := emailData{
+		Title:        subject,
+		Preheader:    "Use this code to finish connecting BizUp to PayConnect.",
+		Reason:       "You received this email because a BizUp connection requested access to your PayConnect account.",
+		Eyebrow:      "BizUp connection",
+		Heading:      "Confirm it's you",
+		Name:         greetingName(name),
+		Intro:        "Enter this code in the BizUp window to approve the connection. If you did not start this, ignore the email and do not share the code.",
+		Expiry:       "10 minutes",
+		Code:         code,
+		Tone:         toneDanger,
+		CalloutTitle: "Didn't request this?",
+		CalloutBody:  "Someone may have typed your email into BizUp. Ignoring this email keeps your account safe; the code only works for 10 minutes.",
+	}
+	h, err := renderHTML(loginCodeTmpl, d)
+	if err != nil {
+		return message{}, err
+	}
+	text := fmt.Sprintf(`Hello %s,
+
+Use this code to approve the BizUp connection to your PayConnect account:
+
+%s
+
+This code expires in %s. If you did not request it, ignore this email and do not share the code.
+
+PayConnect will never ask for your password or API keys by email.
+`, d.Name, code, d.Expiry)
 	return message{Subject: subject, HTML: h, Text: text}, nil
 }
 
